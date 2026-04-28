@@ -75,14 +75,17 @@
       <template #header>
         <div class="card-header">
           <span>历史数据趋势</span>
+          <div class="chart-controls">
+            <el-select v-model="selectedIndicator" size="small" @change="updateChart" placeholder="温度">
+              <el-option label="温度" value="temperature"></el-option>
+              <el-option label="湿度" value="humidity"></el-option>
+              <el-option label="光照" value="light"></el-option>
+              <el-option label="CO2" value="co2"></el-option>
+            </el-select>
+          </div>
         </div>
       </template>
-      <div class="chart-container">
-        <div class="chart-placeholder">
-          <el-icon class="chart-icon"><monitor /></el-icon>
-          <p>环境数据趋势图表</p>
-        </div>
-      </div>
+      <div ref="chartRef" class="chart-container"></div>
     </el-card>
 
     <!-- 监测点列表 -->
@@ -97,24 +100,20 @@
         <el-table-column prop="location" label="位置" width="200"></el-table-column>
         <el-table-column prop="status" label="状态" width="120">
           <template #default="scope">
-            <el-tag :type="getMonitorStatusTag(scope.row.status)">{{ scope.row.status }}</el-tag>
+            <el-tag :type="getMonitorStatusTag(scope.row.status)">
+              {{ scope.row.status }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="lastUpdate" label="最后更新" width="180"></el-table-column>
-        <el-table-column label="操作" width="150">
-          <template #default="scope">
-            <el-button type="primary" size="small" @click="viewDetails(scope.row)">
-              查看详情
-            </el-button>
-          </template>
-        </el-table-column>
       </el-table>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import * as echarts from 'echarts'
 import { Monitor } from '@element-plus/icons-vue'
 
 const filterForm = ref({
@@ -164,9 +163,171 @@ const monitorPoints = ref([
   }
 ])
 
+const chartRef = ref(null)
+const chart = ref(null)
+const selectedIndicator = ref('temperature')
+
+// 生成模拟历史数据
+const generateHistoricalData = (days = 7) => {
+  const dates = []
+  const data = {
+    temperature: [],
+    humidity: [],
+    light: [],
+    co2: []
+  }
+  const today = new Date()
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    dates.push(`${date.getMonth() + 1}/${date.getDate()}`)
+    
+    // 生成模拟数据
+    data.temperature.push((25 + Math.random() * 4 - 2).toFixed(1) * 1)
+    data.humidity.push((65 + Math.random() * 10 - 5).toFixed(1) * 1)
+    data.light.push(Math.floor(7000 + Math.random() * 2000))
+    data.co2.push((450 + Math.random() * 50 - 25).toFixed(0) * 1)
+  }
+  
+  return { dates, data }
+}
+
+// 初始化图表
+const initChart = () => {
+  if (!chartRef.value) return
+  
+  chart.value = echarts.init(chartRef.value)
+  updateChart()
+}
+
+// 更新图表
+const updateChart = () => {
+  if (!chart.value) return
+  
+  const { dates, data } = generateHistoricalData()
+  
+  // 获取当前选中的指标数据
+  let seriesData = []
+  let indicatorName = ''
+  let indicatorColor = ''
+  
+  switch (selectedIndicator.value) {
+    case 'temperature':
+      seriesData = data.temperature
+      indicatorName = '温度 (°C)'
+      indicatorColor = '#ff7875'
+      break
+    case 'humidity':
+      seriesData = data.humidity
+      indicatorName = '湿度 (%)'
+      indicatorColor = '#40a9ff'
+      break
+    case 'light':
+      seriesData = data.light
+      indicatorName = '光照 (lux)'
+      indicatorColor = '#faad14'
+      break
+    case 'co2':
+      seriesData = data.co2
+      indicatorName = 'CO2 (ppm)'
+      indicatorColor = '#73d13d'
+      break
+    default:
+      seriesData = data.temperature
+      indicatorName = '温度 (°C)'
+      indicatorColor = '#ff7875'
+  }
+  
+  // 配置图表选项
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        return `${params[0].name}: ${params[0].value} ${indicatorName.split(' ')[1]}`
+      }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: dates,
+      axisLabel: {
+        rotate: 45,
+        fontSize: 10
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: indicatorName,
+      axisLabel: {
+        formatter: '{value}'
+      }
+    },
+    series: [
+      {
+        name: indicatorName,
+        type: 'line',
+        data: seriesData,
+        smooth: true,
+        itemStyle: {
+          color: indicatorColor
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            {
+              offset: 0,
+              color: `${indicatorColor}33` // 33 is 20% opacity
+            },
+            {
+              offset: 1,
+              color: `${indicatorColor}11` // 11 is 7% opacity
+            }
+          ])
+        }
+      }
+    ]
+  }
+  
+  chart.value.setOption(option)
+}
+
+// 获取指标名称
+const getIndicatorName = (indicator) => {
+  const nameMap = {
+    temperature: '温度 (°C)',
+    humidity: '湿度 (%)',
+    light: '光照 (lux)',
+    co2: 'CO2 (ppm)'
+  }
+  return nameMap[indicator] || ''
+}
+
+// 获取指标颜色
+const getIndicatorColor = (indicator, alpha = 1) => {
+  const colorMap = {
+    temperature: `rgba(255, 120, 117, ${alpha})`,
+    humidity: `rgba(105, 192, 255, ${alpha})`,
+    light: `rgba(230, 162, 60, ${alpha})`,
+    co2: `rgba(103, 194, 58, ${alpha})`
+  }
+  return colorMap[indicator] || `rgba(144, 147, 153, ${alpha})`
+}
+
+// 响应式调整
+const handleResize = () => {
+  chart.value?.resize()
+}
+
 const searchData = () => {
   // 模拟查询数据
   console.log('查询数据:', filterForm.value)
+  updateChart()
 }
 
 const getStatusClass = (status) => {
@@ -191,6 +352,16 @@ const viewDetails = (row) => {
   // 查看监测点详情
   console.log('查看监测点详情:', row)
 }
+
+onMounted(() => {
+  initChart()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  chart.value?.dispose()
+})
 </script>
 
 <style scoped>
@@ -198,8 +369,9 @@ const viewDetails = (row) => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  height: 100%;
+  min-height: 100%;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .filter-card {
@@ -284,27 +456,81 @@ const viewDetails = (row) => {
   flex-shrink: 0;
 }
 
+.chart-controls {
+  display: flex;
+  gap: 10px;
+}
+
+/* 选择框样式 */
+:deep(.el-select) {
+  min-width: 120px;
+}
+
+:deep(.el-select .el-input__wrapper) {
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  box-shadow: none;
+  transition: all 0.3s;
+}
+
+:deep(.el-select .el-input__wrapper:hover) {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+:deep(.el-select .el-input__wrapper.is-focus) {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+:deep(.el-select-dropdown) {
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  border: 1px solid #ebeef5;
+  background-color: #fff;
+}
+
+:deep(.el-select-dropdown__item) {
+  padding: 10px 20px;
+  font-size: 14px;
+  color: #606266;
+  transition: all 0.3s;
+}
+
+:deep(.el-select-dropdown__item:hover) {
+  background-color: #ecf5ff;
+  color: #409eff;
+}
+
+:deep(.el-select-dropdown__item.selected) {
+  background-color: #ecf5ff;
+  color: #409eff;
+  font-weight: 500;
+}
+
 .chart-container {
   flex: 1;
+  min-height: 450px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 隐藏滚动条 */
+:deep(.el-card__body) {
+  overflow: hidden !important;
+  padding: 20px !important;
+}
+
+.chart-card {
+  flex-shrink: 0;
+  min-height: 450px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-}
-
-.chart-placeholder {
-  text-align: center;
-  color: #909399;
-}
-
-.chart-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
+  flex-direction: column;
 }
 
 .monitor-list-card {
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
 }

@@ -21,8 +21,8 @@
           </el-form-item>
           <el-form-item label="类型">
             <el-select v-model="filterForm.type" placeholder="选择类型">
-              <el-option label="农资" value="material"></el-option>
-              <el-option label="产品" value="product"></el-option>
+              <el-option label="农资" value="农资"></el-option>
+              <el-option label="产品" value="产品"></el-option>
             </el-select>
           </el-form-item>
           <el-form-item label="库存状态">
@@ -47,7 +47,7 @@
           <span>库存列表</span>
         </div>
       </template>
-      <el-table :data="inventory" style="width: 100%">
+      <el-table :data="inventory" style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="编号" width="100"></el-table-column>
         <el-table-column prop="name" label="名称"></el-table-column>
         <el-table-column prop="type" label="类型" width="100"></el-table-column>
@@ -79,8 +79,12 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Download, Warning } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+
+const loading = ref(false)
+const inventory = ref([])
 
 const filterForm = ref({
   name: '',
@@ -88,86 +92,72 @@ const filterForm = ref({
   status: ''
 })
 
-const inventory = ref([
-  {
-    id: 1,
-    name: '尿素',
-    type: '农资',
-    category: '化肥',
-    spec: '46%含量',
-    stock: 500,
-    unit: 'kg',
-    lastUpdate: '2026-04-25 10:00'
-  },
-  {
-    id: 2,
-    name: '复合肥',
-    type: '农资',
-    category: '化肥',
-    spec: 'NPK 15-15-15',
-    stock: 300,
-    unit: 'kg',
-    lastUpdate: '2026-04-25 10:00'
-  },
-  {
-    id: 3,
-    name: '杀虫剂',
-    type: '农资',
-    category: '农药',
-    spec: '100ml/瓶',
-    stock: 45,
-    unit: '瓶',
-    lastUpdate: '2026-04-25 10:00'
-  },
-  {
-    id: 4,
-    name: '西红柿',
-    type: '产品',
-    category: '蔬菜',
-    spec: '新鲜',
-    stock: 1200,
-    unit: 'kg',
-    lastUpdate: '2026-04-25 08:00'
-  },
-  {
-    id: 5,
-    name: '黄瓜',
-    type: '产品',
-    category: '蔬菜',
-    spec: '新鲜',
-    stock: 800,
-    unit: 'kg',
-    lastUpdate: '2026-04-25 08:00'
+// API 调用
+const fetchInventory = async () => {
+  loading.value = true
+  try {
+    let url = '/api/inventory'
+    const params = new URLSearchParams()
+    if (filterForm.value.name) params.append('name', filterForm.value.name)
+    if (filterForm.value.type) params.append('type', filterForm.value.type)
+    if (filterForm.value.status) params.append('status', filterForm.value.status)
+    
+    if (params.toString()) {
+      url += '?' + params.toString()
+    }
+    
+    const response = await fetch(url)
+    inventory.value = await response.json()
+  } catch (error) {
+    ElMessage.error('获取库存列表失败')
+  } finally {
+    loading.value = false
   }
-])
+}
+
+onMounted(() => {
+  fetchInventory()
+})
 
 const exportInventory = () => {
-  // 导出库存
-  console.log('导出库存')
+  // 导出CSV
+  let csv = '编号,名称,类型,类别,规格,库存,单位,更新时间\n'
+  inventory.value.forEach(item => {
+    csv += `${item.id},${item.name},${item.type},${item.category},${item.spec},${item.stock},${item.unit},${item.lastUpdate}\n`
+  })
+  
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = '库存列表_' + new Date().toLocaleDateString() + '.csv'
+  link.click()
+  ElMessage.success('导出成功')
 }
 
 const inventoryAlert = () => {
-  // 库存预警
-  console.log('库存预警')
-}
-
-const searchInventory = () => {
-  // 查询库存
-  console.log('查询库存:', filterForm.value)
-}
-
-const resetFilter = () => {
-  // 重置筛选
-  filterForm.value = {
-    name: '',
-    type: '',
-    status: ''
+  const lowStock = inventory.value.filter(item => item.stock < 50)
+  if (lowStock.length > 0) {
+    let message = '以下库存不足:\n'
+    lowStock.forEach(item => {
+      message += `${item.name}: ${item.stock}${item.unit}\n`
+    })
+    ElMessage.warning(message)
+  } else {
+    ElMessage.success('库存充足')
   }
 }
 
+const searchInventory = () => {
+  fetchInventory()
+}
+
+const resetFilter = () => {
+  filterForm.value = { name: '', type: '', status: '' }
+  fetchInventory()
+}
+
 const viewDetail = (row) => {
-  // 查看详情
-  console.log('查看详情:', row)
+  ElMessage.info(`${row.name} - 当前库存: ${row.stock}${row.unit}`)
 }
 </script>
 
@@ -225,11 +215,9 @@ const viewDetail = (row) => {
 
 .text-warning {
   color: #e6a23c;
-  font-weight: bold;
 }
 
 .text-success {
   color: #67c23a;
-  font-weight: bold;
 }
 </style>

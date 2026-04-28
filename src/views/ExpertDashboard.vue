@@ -11,11 +11,11 @@
             <el-icon><chat-dot-round /></el-icon>
             <span>回复模块</span>
           </router-link>
-          <router-link to="/environment" class="menu-item">
+          <router-link to="/expert/environment" class="menu-item">
             <el-icon><monitor /></el-icon>
             <span>环境监测</span>
           </router-link>
-          <router-link to="/farm" class="menu-item">
+          <router-link to="/expert/farm" class="menu-item">
             <el-icon><location /></el-icon>
             <span>农田信息管理</span>
           </router-link>
@@ -52,7 +52,7 @@
               <span>待回复咨询</span>
             </div>
           </template>
-          <el-table :data="expertConsultations" style="width: 100%" @row-click="viewConsultationDetail">
+          <el-table :data="expertConsultations" style="width: 100%" v-loading="loading" @row-click="viewConsultationDetail">
             <el-table-column prop="id" label="咨询编号" width="120"></el-table-column>
             <el-table-column prop="userName" label="用户" width="150"></el-table-column>
             <el-table-column prop="subject" label="咨询主题"></el-table-column>
@@ -83,11 +83,13 @@
               <h4>聊天记录</h4>
               <div class="message-list" ref="messageList">
                 <div v-for="(message, index) in currentConsultation.messages" :key="index" class="message-item" :class="{ 'user-message': message.sender === 'user', 'expert-message': message.sender === 'expert' }">
+                  <div class="message-sender">{{ message.sender === 'user' ? '用户' : '专家' }}</div>
+                  <img v-if="message.sender === 'user'" src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=user%20avatar%20portrait&image_size=square" alt="用户头像" class="message-avatar">
                   <div class="message-content">
-                    <div class="message-sender">{{ message.sender === 'user' ? '用户' : '专家' }}</div>
                     <div class="message-text">{{ message.content }}</div>
                     <div class="message-time">{{ message.time }}</div>
                   </div>
+                  <img v-if="message.sender === 'expert'" :src="expertAvatar" alt="专家头像" class="message-avatar">
                 </div>
               </div>
             </div>
@@ -112,31 +114,28 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useConsultationStore } from './../stores/consultation.js'
 import {
   ChatDotRound,
   Monitor,
   Location
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-const consultationStore = useConsultationStore()
 const dialogVisible = ref(false)
 const replyContent = ref('')
 const messageList = ref(null)
+const loading = ref(false)
 
 const expertName = ref('张教授')
 const expertAvatar = ref('https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20agriculture%20expert%20portrait&image_size=square')
 
-// 假设当前专家ID为1（张教授）
+// 当前专家ID（张教授）
 const currentExpertId = 1
 
-// 获取当前专家的咨询列表
-const expertConsultations = computed(() => {
-  return consultationStore.getExpertConsultations(currentExpertId)
-})
+const expertConsultations = ref([])
 
 const currentConsultation = reactive({
   id: '',
@@ -148,7 +147,6 @@ const currentConsultation = reactive({
 })
 
 const logout = () => {
-  // 退出登录
   router.push('/expert/login')
 }
 
@@ -161,12 +159,28 @@ const getStatusTag = (status) => {
   return tagMap[status] || 'default'
 }
 
-const viewConsultationDetail = (row) => {
-  // 查看咨询详情
-  Object.assign(currentConsultation, row)
+const fetchExpertConsultations = async () => {
+  loading.value = true
+  try {
+    const response = await fetch(`/api/consultations/expert/${currentExpertId}`)
+    expertConsultations.value = await response.json()
+  } catch (error) {
+    ElMessage.error('获取咨询列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchExpertConsultations()
+})
+
+const viewConsultationDetail = async (row) => {
+  const response = await fetch(`/api/consultations/${row.id}`)
+  const data = await response.json()
+  Object.assign(currentConsultation, data)
   dialogVisible.value = true
   
-  // 自动滚动到底部
   nextTick(() => {
     if (messageList.value) {
       messageList.value.scrollTop = messageList.value.scrollHeight
@@ -174,36 +188,50 @@ const viewConsultationDetail = (row) => {
   })
 }
 
-const sendReply = () => {
+const sendReply = async () => {
   if (!replyContent.value.trim()) return
   
-  // 添加回复消息
-  const newMessage = {
-    sender: 'expert',
-    content: replyContent.value,
-    time: new Date().toLocaleString('zh-CN')
-  }
-  
-  // 更新本地状态
-  currentConsultation.messages.push(newMessage)
-  currentConsultation.status = '已回复'
-  
-  // 更新全局状态
-  consultationStore.addMessage(currentConsultation.id, newMessage)
-  consultationStore.updateConsultationStatus(currentConsultation.id, '已回复')
-  
-  // 清空回复内容
-  replyContent.value = ''
-  
-  // 自动滚动到底部
-  nextTick(() => {
-    if (messageList.value) {
-      messageList.value.scrollTop = messageList.value.scrollHeight
+  fetch('/api/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      consultationId: currentConsultation.id,
+      sender: 'expert',
+      content: replyContent.value
+    })
+  }).then(response => {
+    if (response.ok) {
+      // 更新本地消息
+      currentConsultation.messages.push({
+        sender: 'expert',
+        content: replyContent.value,
+        time: new Date().toLocaleString('zh-CN')
+      })
+      replyContent.value = ''
+      
+      // 更新状态为已回复
+      fetch('/api/consultations/status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentConsultation.id, status: '已回复' })
+      }).then(() => {
+        currentConsultation.status = '已回复'
+        fetchExpertConsultations()
+      })
+      
+      nextTick(() => {
+        if (messageList.value) {
+          messageList.value.scrollTop = messageList.value.scrollHeight
+        }
+      })
+    } else {
+      ElMessage.error('发送失败')
     }
+  }).catch(() => {
+    ElMessage.error('网络错误')
   })
 }
 
-// 监听消息变化，自动滚动到底部
 watch(
   () => currentConsultation.messages,
   () => {
@@ -365,8 +393,10 @@ watch(
 }
 
 .message-item {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   display: flex;
+  align-items: flex-start;
+  position: relative;
 }
 
 .user-message {
@@ -377,33 +407,61 @@ watch(
   justify-content: flex-end;
 }
 
-.message-content {
-  max-width: 70%;
-  padding: 10px 15px;
-  border-radius: 8px;
-  background-color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+.user-message .message-content {
+  border-radius: 18px 18px 18px 4px;
+  background-color: #ffffff;
+  margin-left: 10px;
 }
 
 .expert-message .message-content {
-  background-color: #e6f7ff;
+  border-radius: 18px 18px 4px 18px;
+  background-color: #92e478;
+  margin-right: 10px;
+}
+
+.message-content {
+  max-width: 70%;
+  padding: 12px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  position: relative;
+  word-wrap: break-word;
+}
+
+.message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .message-sender {
   font-size: 12px;
   color: #909399;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  padding: 0 52px;
+  position: absolute;
+  top: -18px;
+  left: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.expert-message .message-sender {
+  text-align: right;
 }
 
 .message-text {
-  margin-bottom: 4px;
-  line-height: 1.4;
+  line-height: 1.5;
+  font-size: 14px;
 }
 
 .message-time {
   font-size: 11px;
   color: #c0c4cc;
   text-align: right;
+  margin-top: 4px;
+  padding-right: 6px;
 }
 
 .reply-area {

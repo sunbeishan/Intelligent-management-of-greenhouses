@@ -58,32 +58,27 @@
         <template #header>
           <div class="card-header">
             <span>产量趋势</span>
-            <el-select v-model="chartPeriod" size="small" class="period-select">
+            <el-select v-model="yieldChartPeriod" size="small" class="period-select" @change="updateYieldChart">
               <el-option label="近7天" value="7d"></el-option>
               <el-option label="近30天" value="30d"></el-option>
               <el-option label="近90天" value="90d"></el-option>
             </el-select>
           </div>
         </template>
-        <div class="chart-container">
-          <div class="chart-placeholder">
-            <el-icon class="chart-icon"><data-analysis /></el-icon>
-            <p>产量趋势图表</p>
-          </div>
-        </div>
+        <div ref="yieldChartRef" class="chart-container"></div>
       </el-card>
       <el-card shadow="hover" class="chart-card">
         <template #header>
           <div class="card-header">
             <span>环境指标</span>
+            <el-select v-model="envChartPeriod" size="small" class="period-select" @change="updateEnvChart">
+              <el-option label="近7天" value="7d"></el-option>
+              <el-option label="近30天" value="30d"></el-option>
+              <el-option label="近90天" value="90d"></el-option>
+            </el-select>
           </div>
         </template>
-        <div class="chart-container">
-          <div class="chart-placeholder">
-            <el-icon class="chart-icon"><monitor /></el-icon>
-            <p>环境指标图表</p>
-          </div>
-        </div>
+        <div ref="envChartRef" class="chart-container"></div>
       </el-card>
     </div>
 
@@ -108,7 +103,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import * as echarts from 'echarts'
 import {
   Location,
   Monitor,
@@ -116,7 +112,12 @@ import {
   User
 } from '@element-plus/icons-vue'
 
-const chartPeriod = ref('30d')
+const yieldChartPeriod = ref('30d')
+const envChartPeriod = ref('30d')
+const yieldChartRef = ref(null)
+const envChartRef = ref(null)
+const yieldChart = ref(null)
+const envChart = ref(null)
 
 const recentActivities = ref([
   {
@@ -141,6 +142,212 @@ const recentActivities = ref([
   }
 ])
 
+// 生成模拟数据
+const generateYieldData = (days) => {
+  const dates = []
+  const values = []
+  const today = new Date()
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    dates.push(`${date.getMonth() + 1}/${date.getDate()}`)
+    // 生成模拟产量数据，带有一些随机波动
+    const baseValue = 2.5
+    const randomValue = Math.random() * 1 - 0.5
+    values.push((baseValue + randomValue).toFixed(2) * 1)
+  }
+  
+  return { dates, values }
+}
+
+const generateEnvData = (days) => {
+  const dates = []
+  const temperature = []
+  const humidity = []
+  const today = new Date()
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today)
+    date.setDate(date.getDate() - i)
+    dates.push(`${date.getMonth() + 1}/${date.getDate()}`)
+    // 生成模拟温度数据
+    const baseTemp = 25
+    const tempRandom = Math.random() * 4 - 2
+    temperature.push((baseTemp + tempRandom).toFixed(1) * 1)
+    // 生成模拟湿度数据
+    const baseHumidity = 65
+    const humidityRandom = Math.random() * 10 - 5
+    humidity.push((baseHumidity + humidityRandom).toFixed(1) * 1)
+  }
+  
+  return { dates, temperature, humidity }
+}
+
+// 初始化产量趋势图表
+const initYieldChart = () => {
+  if (!yieldChartRef.value) return
+  
+  yieldChart.value = echarts.init(yieldChartRef.value)
+  updateYieldChart()
+}
+
+// 初始化环境指标图表
+const initEnvChart = () => {
+  if (!envChartRef.value) return
+  
+  envChart.value = echarts.init(envChartRef.value)
+  updateEnvChart()
+}
+
+// 更新产量趋势图表
+const updateYieldChart = () => {
+  if (!yieldChart.value) return
+  
+  const days = parseInt(yieldChartPeriod.value.replace('d', ''))
+  const data = generateYieldData(days)
+  
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      formatter: '{b}: {c} 吨'
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: data.dates,
+      axisLabel: {
+        rotate: 45,
+        fontSize: 10
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '产量（吨）',
+      axisLabel: {
+        formatter: '{value}'
+      }
+    },
+    series: [
+      {
+        name: '产量',
+        type: 'line',
+        data: data.values,
+        smooth: true,
+        itemStyle: {
+          color: '#1890ff'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            {
+              offset: 0,
+              color: 'rgba(24, 144, 255, 0.3)'
+            },
+            {
+              offset: 1,
+              color: 'rgba(24, 144, 255, 0.1)'
+            }
+          ])
+        }
+      }
+    ]
+  }
+  
+  yieldChart.value.setOption(option)
+}
+
+// 更新环境指标图表
+const updateEnvChart = () => {
+  if (!envChart.value) return
+  
+  const days = parseInt(envChartPeriod.value.replace('d', ''))
+  const data = generateEnvData(days)
+  
+  const option = {
+    tooltip: {
+      trigger: 'axis'
+    },
+    legend: {
+      data: ['温度', '湿度'],
+      top: 0
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: data.dates,
+      axisLabel: {
+        rotate: 45,
+        fontSize: 10
+      }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '温度（°C）',
+        position: 'left',
+        axisLabel: {
+          formatter: '{value}'
+        }
+      },
+      {
+        type: 'value',
+        name: '湿度（%）',
+        position: 'right',
+        axisLabel: {
+          formatter: '{value}'
+        }
+      }
+    ],
+    series: [
+      {
+        name: '温度',
+        type: 'line',
+        data: data.temperature,
+        smooth: true,
+        itemStyle: {
+          color: '#ff7875'
+        }
+      },
+      {
+        name: '湿度',
+        type: 'line',
+        yAxisIndex: 1,
+        data: data.humidity,
+        smooth: true,
+        itemStyle: {
+          color: '#69c0ff'
+        }
+      }
+    ]
+  }
+  
+  envChart.value.setOption(option)
+}
+
+// 更新所有图表
+const updateCharts = () => {
+  updateYieldChart()
+  updateEnvChart()
+}
+
+// 响应式调整
+const handleResize = () => {
+  yieldChart.value?.resize()
+  envChart.value?.resize()
+}
+
 const getActivityTypeTag = (type) => {
   const tagMap = {
     '环境监测': 'warning',
@@ -150,6 +357,18 @@ const getActivityTypeTag = (type) => {
   }
   return tagMap[type] || 'default'
 }
+
+onMounted(() => {
+  initYieldChart()
+  initEnvChart()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  yieldChart.value?.dispose()
+  envChart.value?.dispose()
+})
 </script>
 
 <style scoped>
@@ -157,8 +376,9 @@ const getActivityTypeTag = (type) => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  height: 100%;
+  min-height: 100%;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .stats-grid {
@@ -231,13 +451,13 @@ const getActivityTypeTag = (type) => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
 }
 
 .chart-card {
   display: flex;
   flex-direction: column;
+  min-height: 400px;
 }
 
 .card-header {
@@ -253,25 +473,12 @@ const getActivityTypeTag = (type) => {
 
 .chart-container {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-}
-
-.chart-placeholder {
-  text-align: center;
-  color: #909399;
-}
-
-.chart-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
+  min-height: 350px;
 }
 
 .activity-card {
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
   margin-top: 0;

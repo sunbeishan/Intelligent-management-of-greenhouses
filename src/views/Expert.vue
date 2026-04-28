@@ -39,7 +39,7 @@
           <span>咨询记录</span>
         </div>
       </template>
-      <el-table :data="consultations" style="width: 100%" @row-click="viewConsultation">
+      <el-table :data="consultations" style="width: 100%" v-loading="loading" @row-click="viewConsultation">
         <el-table-column prop="id" label="咨询编号" width="120"></el-table-column>
         <el-table-column prop="expertName" label="专家" width="150"></el-table-column>
         <el-table-column prop="subject" label="咨询主题"></el-table-column>
@@ -97,11 +97,13 @@
           <h4>聊天记录</h4>
           <div class="message-list" ref="messageList">
             <div v-for="(message, index) in currentConsultation.messages" :key="index" class="message-item" :class="{ 'user-message': message.sender === 'user', 'expert-message': message.sender === 'expert' }">
+              <div class="message-sender">{{ message.sender === 'user' ? '我' : currentConsultation.expertName }}</div>
+              <img v-if="message.sender === 'user'" src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=user%20avatar%20portrait&image_size=square" alt="用户头像" class="message-avatar">
               <div class="message-content">
-                <div class="message-sender">{{ message.sender === 'user' ? '我' : currentConsultation.expertName }}</div>
                 <div class="message-text">{{ message.content }}</div>
                 <div class="message-time">{{ message.time }}</div>
               </div>
+              <img v-if="message.sender === 'expert'" :src="getExpertAvatar(currentConsultation.expertId)" alt="专家头像" class="message-avatar">
             </div>
           </div>
         </div>
@@ -124,14 +126,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, nextTick, computed } from 'vue'
-import { useConsultationStore } from './../stores/consultation.js'
+import { ref, reactive, onMounted, nextTick, watch } from 'vue'
+import { Plus } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
-const consultationStore = useConsultationStore()
 const consultDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const consultFormRef = ref(null)
 const messageList = ref(null)
+const loading = ref(false)
 
 const replyContent = ref('')
 
@@ -166,7 +169,7 @@ const experts = ref([
   }
 ])
 
-const consultations = computed(() => consultationStore.getUserConsultations())
+const consultations = ref([])
 
 const consultForm = reactive({
   expertId: '',
@@ -196,6 +199,22 @@ const currentConsultation = reactive({
   messages: []
 })
 
+const fetchConsultations = async () => {
+  loading.value = true
+  try {
+    const response = await fetch('/api/consultations')
+    consultations.value = await response.json()
+  } catch (error) {
+    ElMessage.error('获取咨询列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchConsultations()
+})
+
 const openConsultDialog = (expert = null) => {
   if (expert) {
     consultForm.expertId = expert.id
@@ -203,10 +222,9 @@ const openConsultDialog = (expert = null) => {
   consultDialogVisible.value = true
 }
 
-const submitConsultation = () => {
+const submitConsultation = async () => {
   consultFormRef.value.validate((valid) => {
     if (valid) {
-      // 创建新的咨询
       const expert = experts.value.find(e => e.id === consultForm.expertId)
       const newConsultation = {
         id: 'C' + new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14),
@@ -214,35 +232,37 @@ const submitConsultation = () => {
         expertName: expert.name,
         userName: '当前用户',
         subject: consultForm.subject,
-        status: '待处理',
-        createTime: new Date().toLocaleString('zh-CN'),
-        messages: [
-          {
-            sender: 'user',
-            content: consultForm.content,
-            time: new Date().toLocaleString('zh-CN')
-          }
-        ]
+        content: consultForm.content
       }
       
-      // 添加到全局状态
-      consultationStore.addConsultation(newConsultation)
-      consultDialogVisible.value = false
-      
-      // 重置表单
-      consultForm.expertId = ''
-      consultForm.subject = ''
-      consultForm.content = ''
+      fetch('/api/consultations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConsultation)
+      }).then(response => {
+        if (response.ok) {
+          ElMessage.success('咨询提交成功')
+          consultDialogVisible.value = false
+          consultForm.expertId = ''
+          consultForm.subject = ''
+          consultForm.content = ''
+          fetchConsultations()
+        } else {
+          ElMessage.error('提交失败')
+        }
+      }).catch(() => {
+        ElMessage.error('网络错误')
+      })
     }
   })
 }
 
-const viewConsultation = (row) => {
-  // 查看咨询详情
-  Object.assign(currentConsultation, row)
+const viewConsultation = async (row) => {
+  const response = await fetch(`/api/consultations/${row.id}`)
+  const data = await response.json()
+  Object.assign(currentConsultation, data)
   detailDialogVisible.value = true
   
-  // 自动滚动到底部
   nextTick(() => {
     if (messageList.value) {
       messageList.value.scrollTop = messageList.value.scrollHeight
@@ -250,32 +270,44 @@ const viewConsultation = (row) => {
   })
 }
 
-const sendReply = () => {
+const sendReply = async () => {
   if (!replyContent.value.trim()) return
   
-  // 添加回复消息
-  const newMessage = {
-    sender: 'user',
-    content: replyContent.value,
-    time: new Date().toLocaleString('zh-CN')
-  }
-  
-  // 更新本地状态
-  currentConsultation.messages.push(newMessage)
-  currentConsultation.status = '处理中'
-  
-  // 更新全局状态
-  consultationStore.addMessage(currentConsultation.id, newMessage)
-  consultationStore.updateConsultationStatus(currentConsultation.id, '处理中')
-  
-  // 清空回复内容
-  replyContent.value = ''
-  
-  // 自动滚动到底部
-  nextTick(() => {
-    if (messageList.value) {
-      messageList.value.scrollTop = messageList.value.scrollHeight
+  fetch('/api/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      consultationId: currentConsultation.id,
+      sender: 'user',
+      content: replyContent.value
+    })
+  }).then(response => {
+    if (response.ok) {
+      // 更新本地消息
+      currentConsultation.messages.push({
+        sender: 'user',
+        content: replyContent.value,
+        time: new Date().toLocaleString('zh-CN')
+      })
+      replyContent.value = ''
+      
+      // 更新状态为处理中
+      fetch('/api/consultations/status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentConsultation.id, status: '处理中' })
+      })
+      
+      nextTick(() => {
+        if (messageList.value) {
+          messageList.value.scrollTop = messageList.value.scrollHeight
+        }
+      })
+    } else {
+      ElMessage.error('发送失败')
     }
+  }).catch(() => {
+    ElMessage.error('网络错误')
   })
 }
 
@@ -288,7 +320,11 @@ const getConsultationStatusTag = (status) => {
   return tagMap[status] || 'default'
 }
 
-// 监听消息变化，自动滚动到底部
+const getExpertAvatar = (expertId) => {
+  const expert = experts.value.find(e => e.id === expertId)
+  return expert ? expert.avatar : 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20expert%20portrait&image_size=square'
+}
+
 watch(
   () => currentConsultation.messages,
   () => {
@@ -412,8 +448,10 @@ watch(
 }
 
 .message-item {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   display: flex;
+  align-items: flex-start;
+  position: relative;
 }
 
 .user-message {
@@ -424,33 +462,61 @@ watch(
   justify-content: flex-end;
 }
 
-.message-content {
-  max-width: 70%;
-  padding: 10px 15px;
-  border-radius: 8px;
-  background-color: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+.user-message .message-content {
+  border-radius: 18px 18px 18px 4px;
+  background-color: #ffffff;
+  margin-left: 10px;
 }
 
 .expert-message .message-content {
-  background-color: #e6f7ff;
+  border-radius: 18px 18px 4px 18px;
+  background-color: #92e478;
+  margin-right: 10px;
+}
+
+.message-content {
+  max-width: 70%;
+  padding: 12px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  position: relative;
+  word-wrap: break-word;
+}
+
+.message-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .message-sender {
   font-size: 12px;
   color: #909399;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  padding: 0 52px;
+  position: absolute;
+  top: -18px;
+  left: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.expert-message .message-sender {
+  text-align: right;
 }
 
 .message-text {
-  margin-bottom: 4px;
-  line-height: 1.4;
+  line-height: 1.5;
+  font-size: 14px;
 }
 
 .message-time {
   font-size: 11px;
   color: #c0c4cc;
   text-align: right;
+  margin-top: 4px;
+  padding-right: 6px;
 }
 
 .reply-area {

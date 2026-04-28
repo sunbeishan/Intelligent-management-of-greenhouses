@@ -1,0 +1,111 @@
+智慧农业管理系统 - Java后端启动说明
+=====================================
+
+【环境要求】
+1. Java 8 或更高版本
+2. MySQL 5.7 或 8.0
+3. MySQL JDBC 驱动 (mysql-connector-java-8.0.xx.jar)
+
+【目录结构】
+backend/
+├── src/
+│   ├── db/         # 数据库配置
+│   ├── model/      # 实体类
+│   ├── dao/        # 数据访问层
+│   └── server/     # HTTP服务器和API处理器
+├── lib/            # 存放JDBC驱动jar包 (需要手动创建)
+├── out/            # 编译输出目录 (编译时自动创建)
+└── database.sql    # 数据库初始化脚本
+
+【使用步骤】
+
+第一步：创建数据库
+------------------
+1. 打开MySQL命令行或MySQL Workbench
+2. 执行 database.sql 脚本：
+   mysql -u root -p < database.sql
+   
+   或者手动复制SQL语句执行
+
+第二步：下载JDBC驱动
+--------------------
+1. 下载 mysql-connector-java-8.0.xx.jar
+   下载地址：https://dev.mysql.com/downloads/connector/j/
+   
+2. 在 backend 目录下创建 lib 文件夹
+
+3. 将下载的 jar 包放入 lib 文件夹
+
+第三步：编译代码
+----------------
+打开命令提示符(CMD)，进入backend目录：
+
+cd C:\Users\13046\Desktop\鸡鸡呀\鸡鸡呀\大棚管理\backend
+
+创建输出目录：
+mkdir out
+
+编译Java文件：
+javac -cp "lib\*" -d out src\db\*.java src\model\*.java src\dao\*.java src\server\*.java
+
+第四步：运行服务器
+------------------
+java -cp "out;lib\*" server.SimpleHttpServer
+
+看到 "服务器启动成功，端口: 8080" 表示启动成功！
+
+【API接口列表】
+
+农资管理：
+- GET    /api/materials       获取所有农资
+- GET    /api/materials/{id}  获取单个农资
+- POST   /api/materials       新增农资
+- PUT    /api/materials/{id}  更新农资
+- DELETE /api/materials/{id}  删除农资
+
+采购管理：
+- GET    /api/purchases       获取所有采购记录
+- POST   /api/purchases       新增采购记录（自动更新库存）
+
+产品管理：
+- GET    /api/products        获取所有产品
+- GET    /api/products/{id}   获取单个产品
+- POST   /api/products        新增产品
+- PUT    /api/products/{id}   更新产品
+- DELETE /api/products/{id}   删除产品
+
+销售管理：
+- GET    /api/sales           获取所有销售记录
+- POST   /api/sales           新增销售记录（自动更新库存）
+
+库存管理：
+- GET    /api/inventory       获取所有库存
+- GET    /api/inventory?name=xxx&type=xxx&status=xxx  搜索库存
+
+【前端配置】
+前端 vite.config.js 已配置代理：
+server: {
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8080',
+      changeOrigin: true
+    }
+  }
+}
+
+启动顺序：
+1. 先启动Java后端 (端口8080)
+2. 再启动前端 (npm run dev)
+
+【测试数据】
+数据库脚本已包含测试数据：
+- 5种农资（尿素、复合肥、杀虫剂等）
+- 5种产品（西红柿、黄瓜、茄子等）
+- 3条采购记录
+- 3条销售记录
+
+【注意事项】
+1. 确保MySQL服务已启动
+2. 确保数据库密码正确（默认123456789）
+3. 确保端口8080未被占用
+4. 如果修改了数据库密码，需要修改 src/db/DatabaseConfig.java

@@ -14,6 +14,12 @@ export const useAppStore = defineStore('app', {
     },
     setUser(user) {
       this.user = user
+    },
+    logout() {
+      this.user = {
+        name: '管理员',
+        role: 'admin'
+      }
     }
   }
 })

@@ -22,7 +22,7 @@
         </el-form-item>
         <el-form-item>
           <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-          <el-link type="primary" class="forgot-password">忘记密码？</el-link>
+          <el-link type="primary" class="forgot-password" @click="goToRegister">注册账号</el-link>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" class="login-button" @click="handleLogin">
@@ -68,6 +68,10 @@ const handleLogin = async () => {
   } catch (error) {
     console.error('登录验证失败:', error)
   }
+}
+
+const goToRegister = () => {
+  router.push('/register')
 }
 </script>
 
@@ -134,5 +138,6 @@ const handleLogin = async () => {
 .forgot-password {
   float: right;
   font-size: 14px;
+  margin-left: 20px;
 }
 </style>

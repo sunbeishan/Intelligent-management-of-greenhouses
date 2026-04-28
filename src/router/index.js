@@ -11,14 +11,26 @@ const routes = [
     meta: { title: '登录' }
   },
   {
+    path: '/register',
+    component: () => import('../views/Register.vue'),
+    meta: { title: '注册' }
+  },
+  {
     path: '/expert/login',
     component: () => import('../views/ExpertLogin.vue'),
     meta: { title: '专家登录' }
   },
-  {
-    path: '/expert/dashboard',
+  { path: '/expert/dashboard',
     component: () => import('../views/ExpertDashboard.vue'),
     meta: { title: '专家控制台' }
+  },
+  { path: '/expert/environment',
+    component: () => import('../views/ExpertEnvironment.vue'),
+    meta: { title: '专家环境监测' }
+  },
+  { path: '/expert/farm',
+    component: () => import('../views/ExpertFarm.vue'),
+    meta: { title: '专家农田信息' }
   },
   {
     path: '/dashboard',
@@ -29,6 +41,11 @@ const routes = [
     path: '/environment',
     component: () => import('../views/Environment.vue'),
     meta: { title: '环境监测' }
+  },
+  {
+    path: '/crop',
+    component: () => import('../views/CropIdentification.vue'),
+    meta: { title: '作物识别' }
   },
   {
     path: '/farm',
@@ -70,7 +87,12 @@ const routes = [
     path: '/system',
     component: () => import('../views/System.vue'),
     meta: { title: '系统管理' }
-  }
+  },
+  {
+    path: '/profile',
+    component: () => import('../views/Profile.vue'),
+    meta: { title: '个人中心' }
+  },
 ]
 
 const router = createRouter({

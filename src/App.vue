@@ -3,6 +3,10 @@
   <div v-if="$route.path === '/login'">
     <router-view />
   </div>
+  <!-- 注册页面 -->
+  <div v-else-if="$route.path === '/register'">
+    <router-view />
+  </div>
   <!-- 专家登录页面 -->
   <div v-else-if="$route.path === '/expert/login'">
     <router-view />
@@ -30,12 +34,16 @@
           <el-icon><monitor /></el-icon>
           <span>环境监测</span>
         </router-link>
+        <router-link to="/crop" class="menu-item">
+          <el-icon><collection-tag /></el-icon>
+          <span>作物识别</span>
+        </router-link>
         <router-link to="/farm" class="menu-item">
           <el-icon><location /></el-icon>
           <span>农田信息管理</span>
         </router-link>
         <router-link to="/expert" class="menu-item">
-          <el-icon><user /></el-icon>
+          <el-icon><chat-dot-round /></el-icon>
           <span>专家咨询</span>
         </router-link>
         <!-- 农资管理下拉菜单 -->
@@ -85,8 +93,8 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item>个人中心</el-dropdown-item>
-                <el-dropdown-item>退出登录</el-dropdown-item>
+                <el-dropdown-item @click="goToProfile">个人中心</el-dropdown-item>
+                <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -116,10 +124,15 @@ import {
   Menu,
   ArrowDown,
   TrendCharts,
-  Box
+  Box,
+  CollectionTag,
+  ChatDotRound
 } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const store = useAppStore()
+const router = useRouter()
 const sidebarOpen = computed(() => store.sidebarOpen)
 const user = computed(() => store.user)
 const userAvatar = computed(() => 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=user%20avatar%20portrait&image_size=square')
@@ -134,6 +147,16 @@ const toggleSidebar = () => {
 
 const toggleDropdown = (key) => {
   dropdowns.value[key] = !dropdowns.value[key]
+}
+
+const goToProfile = () => {
+  router.push('/profile')
+}
+
+const logout = () => {
+  store.logout()
+  router.push('/login')
+  ElMessage.success('已退出登录')
 }
 </script>
 
@@ -244,6 +267,12 @@ const toggleDropdown = (key) => {
   width: 100%;
   padding: 12px 20px;
   box-sizing: border-box;
+  color: #ecf0f1;
+}
+
+.dropdown-header span {
+  margin-left: 12px;
+  transition: opacity 0.3s ease, margin-left 0.3s ease;
 }
 
 .dropdown-header:hover {
