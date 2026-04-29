@@ -10,52 +10,49 @@ import java.util.Map;
 
 public class SimpleHttpServer {
     private static final int PORT = 8080;
-    
+
     public static void main(String[] args) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
-        
-        // 农资相关API
+
         server.createContext("/api/materials", new MaterialHandler());
         server.createContext("/api/purchases", new PurchaseHandler());
-        
-        // 产品相关API
+
         server.createContext("/api/products", new ProductHandler());
         server.createContext("/api/sales", new SaleHandler());
-        
-        // 库存相关API
+
         server.createContext("/api/inventory", new InventoryHandler());
-        
-        // 系统管理相关API
+
         server.createContext("/api/users", new UserHandler());
         server.createContext("/api/roles", new RoleHandler());
-        
-        // 专家咨询相关API
+
         server.createContext("/api/consultations", new ConsultationHandler());
         server.createContext("/api/messages", new ConsultationHandler());
-        
+
+        server.createContext("/api/plant-recognition", new PlantRecognitionHandler());
+
         server.setExecutor(null);
         server.start();
         System.out.println("服务器启动成功，端口: " + PORT);
     }
-    
+
     public static void sendResponse(HttpExchange exchange, int statusCode, String response) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
-        
+
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
             exchange.sendResponseHeaders(200, -1);
             return;
         }
-        
+
         byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
         exchange.sendResponseHeaders(statusCode, responseBytes.length);
         OutputStream os = exchange.getResponseBody();
         os.write(responseBytes);
         os.close();
     }
-    
+
     public static String readRequestBody(HttpExchange exchange) throws IOException {
         InputStream is = exchange.getRequestBody();
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -66,7 +63,7 @@ public class SimpleHttpServer {
         }
         return baos.toString(StandardCharsets.UTF_8);
     }
-    
+
     public static Map<String, String> parseQueryParams(String query) {
         Map<String, String> params = new HashMap<>();
         if (query != null && !query.isEmpty()) {

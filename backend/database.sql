@@ -76,7 +76,7 @@ INSERT INTO materials (name, type, spec, stock, unit, supplier) VALUES
 INSERT INTO products (name, type, spec, stock, unit, price) VALUES
 ('西红柿', '蔬菜', '新鲜', 500, 'kg', 3.50),
 ('黄瓜', '蔬菜', '新鲜', 300, 'kg', 2.80),
-('茄子', '蔬菜', '紫皮', 200, 'kg', 2.20),
+('茄子', '蔬菜', '新鲜', 200, 'kg', 2.20),
 ('玉米', '谷物', '新鲜', 1000, 'kg', 1.80),
 ('小麦', '谷物', '优质', 2000, 'kg', 1.50);
 
@@ -101,7 +101,7 @@ INSERT INTO inventory (name, type, category, spec, stock, unit) VALUES
 ('锄头', '农资', '农具', '铁制', 20, '把'),
 ('西红柿', '产品', '蔬菜', '新鲜', 500, 'kg'),
 ('黄瓜', '产品', '蔬菜', '新鲜', 300, 'kg'),
-('茄子', '产品', '蔬菜', '紫皮', 200, 'kg'),
+('茄子', '产品', '蔬菜', '新鲜', 200, 'kg'),
 ('玉米', '产品', '谷物', '新鲜', 1000, 'kg'),
 ('小麦', '产品', '谷物', '优质', 2000, 'kg');
 
@@ -134,3 +134,13 @@ INSERT INTO users (username, password, name, role, status) VALUES
 ('admin', '123456', '管理员', '管理员', '启用'),
 ('user1', '123456', '用户1', '普通用户', '启用'),
 ('user2', '123456', '用户2', '普通用户', '禁用');
+
+-- 植物识别记录表
+CREATE TABLE IF NOT EXISTS plant_recognition (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    image_name VARCHAR(200) COMMENT '图片名称',
+    image_path VARCHAR(500) COMMENT '图片路径',
+    recognition_result VARCHAR(200) COMMENT '识别结果',
+    confidence DECIMAL(5,4) COMMENT '置信度',
+    recognize_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '识别时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
