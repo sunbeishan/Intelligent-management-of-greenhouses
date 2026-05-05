@@ -25,8 +25,8 @@
           <el-link type="primary" class="forgot-password" @click="goToRegister">注册账号</el-link>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" class="login-button" @click="handleLogin">
-            登录
+          <el-button type="primary" class="login-button" @click="handleLogin" :loading="loading">
+            {{ loading ? '登录中...' : '登录' }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -39,10 +39,12 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/index.js'
 import { User, Lock } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const store = useAppStore()
 const loginFormRef = ref()
+const loading = ref(false)
 
 const loginForm = reactive({
   username: '',
@@ -62,11 +64,42 @@ const loginRules = {
 const handleLogin = async () => {
   try {
     await loginFormRef.value.validate()
-    // 模拟登录成功
-    store.setUser({ name: loginForm.username, role: 'admin' })
-    router.push('/dashboard')
+    loading.value = true
+    
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: loginForm.username,
+        password: loginForm.password
+      })
+    })
+
+    const data = await response.json()
+
+    if (data.success) {
+      store.setUser({ 
+        id: data.user.id,
+        name: data.user.name, 
+        username: data.user.username,
+        role: data.user.role,
+        status: data.user.status 
+      })
+      
+      if (loginForm.remember) {
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+      
+      ElMessage.success('登录成功')
+      router.push('/dashboard')
+    } else {
+      ElMessage.error(data.message)
+    }
   } catch (error) {
-    console.error('登录验证失败:', error)
+    console.error('登录失败:', error)
+    ElMessage.error('登录失败，请检查网络连接')
+  } finally {
+    loading.value = false
   }
 }
 

@@ -1,6 +1,5 @@
 <template>
   <div class="materials-purchase">
-    <!-- 操作按钮 -->
     <div class="action-bar">
       <el-button type="primary" @click="addMaterial">
         <el-icon><plus /></el-icon>
@@ -12,7 +11,6 @@
       </el-button>
     </div>
 
-    <!-- 搜索和筛选 -->
     <el-card shadow="hover" class="filter-card">
       <div class="filter-content">
         <el-form :inline="true" :model="filterForm" class="filter-form">
@@ -20,7 +18,7 @@
             <el-input v-model="filterForm.name" placeholder="输入农资名称" style="width: 200px"></el-input>
           </el-form-item>
           <el-form-item label="类型">
-            <el-select v-model="filterForm.type" placeholder="选择类型">
+            <el-select v-model="filterForm.type" placeholder="选择类型" class="type-select">
               <el-option label="化肥" value="化肥"></el-option>
               <el-option label="农药" value="农药"></el-option>
               <el-option label="种子" value="种子"></el-option>
@@ -35,7 +33,6 @@
       </div>
     </el-card>
 
-    <!-- 农资库存 -->
     <el-card shadow="hover" class="materials-card">
       <template #header>
         <div class="card-header">
@@ -63,7 +60,6 @@
       </el-table>
     </el-card>
 
-    <!-- 采购记录 -->
     <el-card shadow="hover" class="purchase-card">
       <template #header>
         <div class="card-header">
@@ -88,7 +84,6 @@
       </el-table>
     </el-card>
 
-    <!-- 新增/编辑农资对话框 -->
     <el-dialog v-model="materialDialogVisible" :title="isEdit ? '编辑农资' : '新增农资'" width="500px">
       <el-form :model="materialForm" :rules="materialRules" ref="materialFormRef" label-width="80px">
         <el-form-item label="名称" prop="name">
@@ -121,7 +116,6 @@
       </template>
     </el-dialog>
 
-    <!-- 采购对话框 -->
     <el-dialog v-model="purchaseDialogVisible" title="采购农资" width="500px">
       <el-form :model="purchaseForm" :rules="purchaseRules" ref="purchaseFormRef" label-width="100px">
         <el-form-item label="农资名称" prop="materialName">
@@ -165,7 +159,6 @@ const filterForm = ref({
   type: ''
 })
 
-// 对话框相关
 const materialDialogVisible = ref(false)
 const purchaseDialogVisible = ref(false)
 const isEdit = ref(false)
@@ -204,7 +197,6 @@ const purchaseRules = {
   supplier: [{ required: true, message: '请输入供应商', trigger: 'blur' }]
 }
 
-// API 调用
 const fetchMaterials = async () => {
   loading.value = true
   try {
@@ -328,7 +320,6 @@ const submitPurchase = async () => {
 }
 
 const searchMaterial = () => {
-  // 前端筛选
   if (!filterForm.value.name && !filterForm.value.type) {
     fetchMaterials()
     return
@@ -377,6 +368,34 @@ const viewPurchase = (row) => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.type-select {
+  width: 120px;
+}
+
+.type-select :deep(.el-select__wrapper) {
+  border-radius: 6px;
+  border: 1px solid #dcdfe6;
+  box-shadow: none;
+  background: #fff;
+}
+
+.type-select :deep(.el-select__wrapper:hover) {
+  border-color: #c0c4cc;
+}
+
+.type-select :deep(.el-select__wrapper.is-focus) {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+}
+
+.type-select :deep(.el-select__trigger) {
+  padding: 0 25px 0 15px;
+}
+
+.type-select :deep(.el-select__caret) {
+  color: #909399;
 }
 
 .materials-card {

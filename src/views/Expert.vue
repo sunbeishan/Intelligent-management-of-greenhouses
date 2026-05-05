@@ -138,36 +138,20 @@ const loading = ref(false)
 
 const replyContent = ref('')
 
-const experts = ref([
-  {
-    id: 1,
-    name: '张教授',
-    title: '农业专家',
-    specialty: '病虫害防治',
-    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20agriculture%20expert%20portrait&image_size=square'
-  },
-  {
-    id: 2,
-    name: '李博士',
-    title: '土壤专家',
-    specialty: '土壤改良',
-    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20soil%20expert%20portrait&image_size=square'
-  },
-  {
-    id: 3,
-    name: '王研究员',
-    title: '种植专家',
-    specialty: '作物栽培',
-    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20planting%20expert%20portrait&image_size=square'
-  },
-  {
-    id: 4,
-    name: '赵工程师',
-    title: '设施专家',
-    specialty: '大棚管理',
-    avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20facility%20expert%20portrait&image_size=square'
+const experts = ref([])
+
+const fetchExperts = async () => {
+  try {
+    const response = await fetch('/api/experts')
+    const data = await response.json()
+    experts.value = data.map(e => ({
+      ...e,
+      title: '专家'
+    }))
+  } catch (error) {
+    ElMessage.error('获取专家列表失败')
   }
-])
+}
 
 const consultations = ref([])
 
@@ -212,6 +196,7 @@ const fetchConsultations = async () => {
 }
 
 onMounted(() => {
+  fetchExperts()
   fetchConsultations()
 })
 

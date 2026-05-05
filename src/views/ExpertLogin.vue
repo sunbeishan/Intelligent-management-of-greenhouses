@@ -3,14 +3,14 @@
     <div class="expert-login-wrapper">
       <h2 class="login-title">专家登录</h2>
       <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="80px">
-        <el-form-item label="专家编号" prop="expertId">
-          <el-input v-model="loginForm.expertId" placeholder="请输入专家编号"></el-input>
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="loginForm.username" placeholder="请输入用户名"></el-input>
         </el-form-item>
         <el-form-item label="密码" prop="password">
           <el-input v-model="loginForm.password" type="password" placeholder="请输入密码"></el-input>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="login" style="width: 100%">登录</el-button>
+          <el-button type="primary" @click="login" style="width: 100%" :loading="loading">登录</el-button>
         </el-form-item>
       </el-form>
       <div class="login-footer">
@@ -23,31 +23,51 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const loginFormRef = ref(null)
+const loading = ref(false)
 
 const loginForm = reactive({
-  expertId: '',
+  username: '',
   password: ''
 })
 
 const rules = {
-  expertId: [
-    { required: true, message: '请输入专家编号', trigger: 'blur' }
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' }
   ]
 }
 
-const login = () => {
-  loginFormRef.value.validate((valid) => {
+const login = async () => {
+  loginFormRef.value.validate(async (valid) => {
     if (valid) {
-      // 模拟专家登录
-      console.log('专家登录:', loginForm)
-      // 登录成功后跳转到专家控制台
-      router.push('/expert/dashboard')
+      loading.value = true
+      try {
+        const response = await fetch('/api/expert/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginForm)
+        })
+        
+        const data = await response.json()
+        
+        if (data.success) {
+          ElMessage.success('登录成功')
+          localStorage.setItem('expert', JSON.stringify(data.expert))
+          router.push('/expert/dashboard')
+        } else {
+          ElMessage.error(data.message)
+        }
+      } catch (error) {
+        ElMessage.error('登录失败，请检查网络连接')
+      } finally {
+        loading.value = false
+      }
     }
   })
 }

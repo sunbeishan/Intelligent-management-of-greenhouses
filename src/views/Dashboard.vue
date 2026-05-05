@@ -6,7 +6,7 @@
         <div class="stat-content">
           <div class="stat-info">
             <h3>总农田面积</h3>
-            <p class="stat-value">1250 亩</p>
+            <p class="stat-value">{{ totalFarmlandArea ? totalFarmlandArea.toFixed(2) : '0.00' }} 亩</p>
             <p class="stat-desc">较上月增长 5%</p>
           </div>
           <div class="stat-icon green">
@@ -104,6 +104,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import {
   Location,
@@ -118,6 +119,7 @@ const yieldChartRef = ref(null)
 const envChartRef = ref(null)
 const yieldChart = ref(null)
 const envChart = ref(null)
+const totalFarmlandArea = ref(0)
 
 const recentActivities = ref([
   {
@@ -141,6 +143,17 @@ const recentActivities = ref([
     content: '销售了5吨蔬菜，已完成交易'
   }
 ])
+
+const fetchTotalFarmlandArea = async () => {
+  try {
+    const response = await fetch('/api/farmland/total-area')
+    const data = await response.json()
+    totalFarmlandArea.value = data.totalArea || 0
+  } catch (error) {
+    ElMessage.error('获取农田总面积失败')
+    totalFarmlandArea.value = 0
+  }
+}
 
 // 生成模拟数据
 const generateYieldData = (days) => {
@@ -359,6 +372,7 @@ const getActivityTypeTag = (type) => {
 }
 
 onMounted(() => {
+  fetchTotalFarmlandArea()
   initYieldChart()
   initEnvChart()
   window.addEventListener('resize', handleResize)

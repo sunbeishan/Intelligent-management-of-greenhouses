@@ -37,7 +37,7 @@
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item>个人中心</el-dropdown-item>
+                  <el-dropdown-item @click="goToProfile">个人中心</el-dropdown-item>
                   <el-dropdown-item @click="logout">退出登录</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -129,11 +129,19 @@ const replyContent = ref('')
 const messageList = ref(null)
 const loading = ref(false)
 
-const expertName = ref('张教授')
-const expertAvatar = ref('https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20agriculture%20expert%20portrait&image_size=square')
+const expertName = ref('')
+const expertAvatar = ref('')
+const currentExpertId = ref(0)
 
-// 当前专家ID（张教授）
-const currentExpertId = 1
+const loadExpertInfo = () => {
+  const expertStr = localStorage.getItem('expert')
+  if (expertStr) {
+    const expert = JSON.parse(expertStr)
+    expertName.value = expert.name || expert.username
+    expertAvatar.value = expert.avatar || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20agriculture%20expert%20portrait&image_size=square'
+    currentExpertId.value = expert.id
+  }
+}
 
 const expertConsultations = ref([])
 
@@ -146,8 +154,14 @@ const currentConsultation = reactive({
   messages: []
 })
 
+const goToProfile = () => {
+  router.push('/expert/profile')
+}
+
 const logout = () => {
+  localStorage.removeItem('expert')
   router.push('/expert/login')
+  ElMessage.success('已退出登录')
 }
 
 const getStatusTag = (status) => {
@@ -162,7 +176,7 @@ const getStatusTag = (status) => {
 const fetchExpertConsultations = async () => {
   loading.value = true
   try {
-    const response = await fetch(`/api/consultations/expert/${currentExpertId}`)
+    const response = await fetch(`/api/consultations/expert/${currentExpertId.value}`)
     expertConsultations.value = await response.json()
   } catch (error) {
     ElMessage.error('获取咨询列表失败')
@@ -172,6 +186,7 @@ const fetchExpertConsultations = async () => {
 }
 
 onMounted(() => {
+  loadExpertInfo()
   fetchExpertConsultations()
 })
 

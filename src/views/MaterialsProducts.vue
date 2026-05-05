@@ -1,6 +1,5 @@
 <template>
   <div class="materials-products">
-    <!-- 操作按钮 -->
     <div class="action-bar">
       <el-button type="primary" @click="addProduct">
         <el-icon><plus /></el-icon>
@@ -12,7 +11,6 @@
       </el-button>
     </div>
 
-    <!-- 搜索和筛选 -->
     <el-card shadow="hover" class="filter-card">
       <div class="filter-content">
         <el-form :inline="true" :model="filterForm" class="filter-form">
@@ -20,7 +18,7 @@
             <el-input v-model="filterForm.name" placeholder="输入产品名称" style="width: 200px"></el-input>
           </el-form-item>
           <el-form-item label="类型">
-            <el-select v-model="filterForm.type" placeholder="选择类型">
+            <el-select v-model="filterForm.type" placeholder="选择类型" class="type-select">
               <el-option label="蔬菜" value="蔬菜"></el-option>
               <el-option label="水果" value="水果"></el-option>
               <el-option label="谷物" value="谷物"></el-option>
@@ -35,7 +33,6 @@
       </div>
     </el-card>
 
-    <!-- 产品库存 -->
     <el-card shadow="hover" class="products-card">
       <template #header>
         <div class="card-header">
@@ -67,7 +64,6 @@
       </el-table>
     </el-card>
 
-    <!-- 销售记录 -->
     <el-card shadow="hover" class="sales-card">
       <template #header>
         <div class="card-header">
@@ -100,7 +96,6 @@
       </el-table>
     </el-card>
 
-    <!-- 新增/编辑产品对话框 -->
     <el-dialog v-model="productDialogVisible" :title="isEdit ? '编辑产品' : '新增产品'" width="500px">
       <el-form :model="productForm" :rules="productRules" ref="productFormRef" label-width="80px">
         <el-form-item label="名称" prop="name">
@@ -133,7 +128,6 @@
       </template>
     </el-dialog>
 
-    <!-- 销售对话框 -->
     <el-dialog v-model="saleDialogVisible" title="产品出售" width="500px">
       <el-form :model="saleForm" :rules="saleRules" ref="saleFormRef" label-width="100px">
         <el-form-item label="产品名称" prop="productName">
@@ -170,6 +164,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const loading = ref(false)
 const saleLoading = ref(false)
 const products = ref([])
+const originalProducts = ref([])
 const sales = ref([])
 
 const filterForm = ref({
@@ -177,7 +172,6 @@ const filterForm = ref({
   type: ''
 })
 
-// 对话框相关
 const productDialogVisible = ref(false)
 const saleDialogVisible = ref(false)
 const isEdit = ref(false)
@@ -217,12 +211,13 @@ const saleRules = {
   customer: [{ required: true, message: '请输入客户', trigger: 'blur' }]
 }
 
-// API 调用
 const fetchProducts = async () => {
   loading.value = true
   try {
     const response = await fetch('/api/products')
-    products.value = await response.json()
+    const data = await response.json()
+    products.value = data
+    originalProducts.value = [...data]
   } catch (error) {
     ElMessage.error('获取产品列表失败')
   } finally {
@@ -342,10 +337,10 @@ const submitSale = async () => {
 
 const searchProduct = () => {
   if (!filterForm.value.name && !filterForm.value.type) {
-    fetchProducts()
+    products.value = [...originalProducts.value]
     return
   }
-  products.value = products.value.filter(p => {
+  products.value = originalProducts.value.filter(p => {
     const nameMatch = !filterForm.value.name || p.name.includes(filterForm.value.name)
     const typeMatch = !filterForm.value.type || p.type === filterForm.value.type
     return nameMatch && typeMatch
@@ -389,6 +384,34 @@ const viewSale = (row) => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.type-select {
+  width: 120px;
+}
+
+.type-select :deep(.el-select__wrapper) {
+  border-radius: 6px;
+  border: 1px solid #dcdfe6;
+  box-shadow: none;
+  background: #fff;
+}
+
+.type-select :deep(.el-select__wrapper:hover) {
+  border-color: #c0c4cc;
+}
+
+.type-select :deep(.el-select__wrapper.is-focus) {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+}
+
+.type-select :deep(.el-select__trigger) {
+  padding: 0 25px 0 15px;
+}
+
+.type-select :deep(.el-select__caret) {
+  color: #909399;
 }
 
 .products-card {

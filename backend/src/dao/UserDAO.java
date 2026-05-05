@@ -58,6 +58,32 @@ public class UserDAO {
         return null;
     }
 
+    public User getUserByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ?";
+        
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, username);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setId(rs.getInt("id"));
+                    user.setUsername(rs.getString("username"));
+                    user.setPassword(rs.getString("password"));
+                    user.setName(rs.getString("name"));
+                    user.setRole(rs.getString("role"));
+                    user.setStatus(rs.getString("status"));
+                    user.setCreateTime(rs.getTimestamp("create_time"));
+                    return user;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public boolean addUser(User user) {
         String sql = "INSERT INTO users (username, password, name, role, status) VALUES (?, ?, ?, ?, ?)";
         

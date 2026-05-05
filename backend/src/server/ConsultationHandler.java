@@ -112,11 +112,23 @@ public class ConsultationHandler implements HttpHandler {
         if (path.equals("/api/consultations")) {
             String id = extractValue(body, "id");
             String expertIdStr = extractValue(body, "expertId");
-            int expertId = Integer.parseInt(expertIdStr);
             String expertName = extractValue(body, "expertName");
             String userName = extractValue(body, "userName");
             String subject = extractValue(body, "subject");
             String content = extractValue(body, "content");
+
+            if (id.isEmpty() || expertIdStr.isEmpty() || expertName.isEmpty() || subject.isEmpty() || content.isEmpty()) {
+                sendResponse(exchange, 400, "{\"message\": \"Missing required fields\"}");
+                return;
+            }
+
+            int expertId;
+            try {
+                expertId = Integer.parseInt(expertIdStr);
+            } catch (NumberFormatException e) {
+                sendResponse(exchange, 400, "{\"message\": \"Invalid expert ID\"}");
+                return;
+            }
 
             if (consultationDAO.addConsultation(id, expertId, expertName, userName, subject)) {
                 consultationDAO.addMessage(id, "user", content);

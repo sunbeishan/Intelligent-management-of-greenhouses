@@ -20,13 +20,13 @@
             <el-input v-model="filterForm.name" placeholder="输入名称" style="width: 200px"></el-input>
           </el-form-item>
           <el-form-item label="类型">
-            <el-select v-model="filterForm.type" placeholder="选择类型">
+            <el-select v-model="filterForm.type" placeholder="选择类型" class="type-select">
               <el-option label="农资" value="农资"></el-option>
               <el-option label="产品" value="产品"></el-option>
             </el-select>
           </el-form-item>
           <el-form-item label="库存状态">
-            <el-select v-model="filterForm.status" placeholder="选择状态">
+            <el-select v-model="filterForm.status" placeholder="选择状态" class="status-select">
               <el-option label="正常" value="normal"></el-option>
               <el-option label="不足" value="low"></el-option>
               <el-option label="过多" value="excess"></el-option>
@@ -188,6 +188,39 @@ const viewDetail = (row) => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.type-select, .status-select {
+  width: 120px;
+}
+
+.type-select :deep(.el-select__wrapper),
+.status-select :deep(.el-select__wrapper) {
+  border-radius: 6px;
+  border: 1px solid #dcdfe6;
+  box-shadow: none;
+  background: #fff;
+}
+
+.type-select :deep(.el-select__wrapper:hover),
+.status-select :deep(.el-select__wrapper:hover) {
+  border-color: #c0c4cc;
+}
+
+.type-select :deep(.el-select__wrapper.is-focus),
+.status-select :deep(.el-select__wrapper.is-focus) {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+}
+
+.type-select :deep(.el-select__trigger),
+.status-select :deep(.el-select__trigger) {
+  padding: 0 25px 0 15px;
+}
+
+.type-select :deep(.el-select__caret),
+.status-select :deep(.el-select__caret) {
+  color: #909399;
 }
 
 .inventory-card {

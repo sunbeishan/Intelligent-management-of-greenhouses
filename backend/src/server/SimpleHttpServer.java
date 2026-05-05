@@ -29,6 +29,11 @@ public class SimpleHttpServer {
         server.createContext("/api/messages", new ConsultationHandler());
 
         server.createContext("/api/plant-recognition", new PlantRecognitionHandler());
+        server.createContext("/api/login", new LoginHandler());
+        server.createContext("/api/register", new RegisterHandler());
+        server.createContext("/api/farmland", new FarmlandHandler());
+        server.createContext("/api/experts", new ExpertHandler());
+        server.createContext("/api/expert/login", new ExpertLoginHandler());
 
         server.setExecutor(null);
         server.start();

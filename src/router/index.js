@@ -32,6 +32,10 @@ const routes = [
     component: () => import('../views/ExpertFarm.vue'),
     meta: { title: '专家农田信息' }
   },
+  { path: '/expert/profile',
+    component: () => import('../views/ExpertProfile.vue'),
+    meta: { title: '专家个人中心' }
+  },
   {
     path: '/dashboard',
     component: () => import('../views/Dashboard.vue'),

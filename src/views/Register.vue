@@ -35,8 +35,8 @@
           </el-input>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" class="login-button" @click="handleRegister">
-            注册
+          <el-button type="primary" class="login-button" @click="handleRegister" :loading="loading">
+            {{ loading ? '注册中...' : '注册' }}
           </el-button>
         </el-form-item>
         <div class="form-footer">
@@ -50,13 +50,12 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAppStore } from '../stores/index.js'
 import { User, Lock, Avatar } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-const store = useAppStore()
 const registerFormRef = ref()
+const loading = ref(false)
 
 const registerForm = reactive({
   username: '',
@@ -93,17 +92,36 @@ const registerRules = {
 const handleRegister = async () => {
   try {
     await registerFormRef.value.validate()
-    // 模拟注册成功
-    ElMessage.success({
-      message: '注册成功，3秒后跳转到登录页面',
-      duration: 3000
+    loading.value = true
+    
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: registerForm.username,
+        password: registerForm.password,
+        name: registerForm.name
+      })
     })
-    // 3秒后跳转到登录页面
-    setTimeout(() => {
-      router.push('/login')
-    }, 3000)
+
+    const data = await response.json()
+
+    if (data.success) {
+      ElMessage.success({
+        message: '注册成功，3秒后跳转到登录页面',
+        duration: 3000
+      })
+      setTimeout(() => {
+        router.push('/login')
+      }, 3000)
+    } else {
+      ElMessage.error(data.message)
+    }
   } catch (error) {
-    console.error('注册验证失败:', error)
+    console.error('注册失败:', error)
+    ElMessage.error('注册失败，请检查网络连接')
+  } finally {
+    loading.value = false
   }
 }
 
