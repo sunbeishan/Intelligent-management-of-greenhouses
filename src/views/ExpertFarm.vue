@@ -52,7 +52,7 @@
               <span>农田列表</span>
             </div>
           </template>
-          <el-table :data="farms" style="width: 100%">
+          <el-table :data="farms" style="width: 100%" @row-click="handleRowClick">
             <el-table-column prop="id" label="编号" width="80"></el-table-column>
             <el-table-column prop="name" label="农田名称"></el-table-column>
             <el-table-column prop="area" label="面积(亩)" width="100"></el-table-column>
@@ -134,67 +134,51 @@ const router = useRouter()
 const expertName = ref('张教授')
 const expertAvatar = ref('https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20agriculture%20expert%20portrait&image_size=square')
 
-const farms = ref([
-  {
-    id: 1,
-    name: '大棚区A1',
-    area: 5.2,
-    location: '大棚区A1号',
-    soilType: '壤土',
-    cropType: '西红柿',
-    status: '正常',
-    remark: '主要种植西红柿，使用滴灌系统'
-  },
-  {
-    id: 2,
-    name: '大棚区A2',
-    area: 4.8,
-    location: '大棚区A2号',
-    soilType: '壤土',
-    cropType: '黄瓜',
-    status: '正常',
-    remark: '主要种植黄瓜，使用喷雾灌溉系统'
-  },
-  {
-    id: 3,
-    name: '露天区B',
-    area: 10.5,
-    location: '露天区B号',
-    soilType: '沙壤土',
-    cropType: '玉米',
-    status: '正常',
-    remark: '主要种植玉米，使用漫灌系统'
-  },
-  {
-    id: 4,
-    name: '露天区C',
-    area: 8.3,
-    location: '露天区C号',
-    soilType: '黏土',
-    cropType: '小麦',
-    status: '正常',
-    remark: '主要种植小麦，使用喷灌系统'
-  }
-])
+const farms = ref([])
 
 const selectedFarm = ref({
-  id: 1,
-  name: '大棚区A1',
-  area: 5.2,
-  location: '大棚区A1号',
-  soilType: '壤土',
-  cropType: '西红柿',
-  status: '正常',
-  remark: '主要种植西红柿，使用滴灌系统'
+  id: null,
+  name: '',
+  area: 0,
+  location: '',
+  soilType: '',
+  cropType: '',
+  status: '',
+  remark: ''
 })
 
 const logout = () => {
-  // 退出登录
   router.push('/expert/login')
 }
 
+const handleRowClick = (row) => {
+  selectedFarm.value = row
+}
+
+const fetchFarmList = async () => {
+  try {
+    const response = await fetch('/api/farmland')
+    const data = await response.json()
+    farms.value = data.map(item => ({
+      id: item.id,
+      name: item.name,
+      area: item.acreage,
+      location: item.area,
+      soilType: item.soilType,
+      cropType: item.crop,
+      status: item.status === '种植中' ? '正常' : item.status,
+      remark: ''
+    }))
+    if (farms.value.length > 0) {
+      selectedFarm.value = farms.value[0]
+    }
+  } catch (error) {
+    console.error('获取农田列表失败:', error)
+  }
+}
+
 onMounted(() => {
-  // 可以在这里加载农田数据
+  fetchFarmList()
 })
 </script>
 

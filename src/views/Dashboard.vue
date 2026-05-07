@@ -29,21 +29,9 @@
       <el-card shadow="hover" class="stat-card">
         <div class="stat-content">
           <div class="stat-info">
-            <h3>本月产量</h3>
-            <p class="stat-value">85 吨</p>
-            <p class="stat-desc">较上月增长 8%</p>
-          </div>
-          <div class="stat-icon orange">
-            <el-icon><data-analysis /></el-icon>
-          </div>
-        </div>
-      </el-card>
-      <el-card shadow="hover" class="stat-card">
-        <div class="stat-content">
-          <div class="stat-info">
             <h3>专家咨询</h3>
-            <p class="stat-value">12 次</p>
-            <p class="stat-desc">本月已解决 10 次</p>
+            <p class="stat-value">{{ consultCount }} 次</p>
+            <p class="stat-desc">本月已解决 {{ solvedCount }} 次</p>
           </div>
           <div class="stat-icon purple">
             <el-icon><user /></el-icon>
@@ -54,20 +42,7 @@
 
     <!-- 图表区域 -->
     <div class="charts-section">
-      <el-card shadow="hover" class="chart-card">
-        <template #header>
-          <div class="card-header">
-            <span>产量趋势</span>
-            <el-select v-model="yieldChartPeriod" size="small" class="period-select" @change="updateYieldChart">
-              <el-option label="近7天" value="7d"></el-option>
-              <el-option label="近30天" value="30d"></el-option>
-              <el-option label="近90天" value="90d"></el-option>
-            </el-select>
-          </div>
-        </template>
-        <div ref="yieldChartRef" class="chart-container"></div>
-      </el-card>
-      <el-card shadow="hover" class="chart-card">
+      <el-card shadow="hover" class="chart-card full-width">
         <template #header>
           <div class="card-header">
             <span>环境指标</span>
@@ -113,36 +88,15 @@ import {
   User
 } from '@element-plus/icons-vue'
 
-const yieldChartPeriod = ref('30d')
 const envChartPeriod = ref('30d')
-const yieldChartRef = ref(null)
 const envChartRef = ref(null)
-const yieldChart = ref(null)
 const envChart = ref(null)
 const totalFarmlandArea = ref(0)
+const consultCount = ref(0)
+const solvedCount = ref(0)
 
-const recentActivities = ref([
-  {
-    time: '2026-04-26 14:30',
-    type: '环境监测',
-    content: '大棚A温度异常，已发送预警'
-  },
-  {
-    time: '2026-04-26 11:15',
-    type: '专家咨询',
-    content: '张专家回复了关于病虫害防治的问题'
-  },
-  {
-    time: '2026-04-25 16:45',
-    type: '农资采购',
-    content: '采购了100kg化肥，已入库'
-  },
-  {
-    time: '2026-04-25 09:30',
-    type: '产品出售',
-    content: '销售了5吨蔬菜，已完成交易'
-  }
-])
+const recentActivities = ref([])
+let activityRefreshTimer = null
 
 const fetchTotalFarmlandArea = async () => {
   try {
@@ -155,23 +109,39 @@ const fetchTotalFarmlandArea = async () => {
   }
 }
 
-// 生成模拟数据
-const generateYieldData = (days) => {
-  const dates = []
-  const values = []
-  const today = new Date()
-  
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    dates.push(`${date.getMonth() + 1}/${date.getDate()}`)
-    // 生成模拟产量数据，带有一些随机波动
-    const baseValue = 2.5
-    const randomValue = Math.random() * 1 - 0.5
-    values.push((baseValue + randomValue).toFixed(2) * 1)
+const fetchConsultationStats = async () => {
+  try {
+    const response = await fetch('/api/consultations')
+    const data = await response.json()
+    consultCount.value = data.length || 0
+    solvedCount.value = data.filter(c => c.status === '完成咨询').length || 0
+  } catch (error) {
+    ElMessage.error('获取咨询统计失败')
+    consultCount.value = 0
+    solvedCount.value = 0
   }
-  
-  return { dates, values }
+}
+
+const fetchRecentActivities = async () => {
+  try {
+    const response = await fetch('/api/activities')
+    const data = await response.json()
+    recentActivities.value = data.length > 0 ? data : generateMockActivities()
+  } catch (error) {
+    console.error('获取活动日志失败:', error)
+    recentActivities.value = generateMockActivities()
+  }
+}
+
+const generateMockActivities = () => {
+  const activities = [
+    { time: new Date().toLocaleString('zh-CN'), type: '环境监测', content: '大棚A温度正常' },
+    { time: new Date(Date.now() - 300000).toLocaleString('zh-CN'), type: '专家咨询', content: '咨询已提交' },
+    { time: new Date(Date.now() - 600000).toLocaleString('zh-CN'), type: '农资采购', content: '采购单已创建' },
+    { time: new Date(Date.now() - 900000).toLocaleString('zh-CN'), type: '产品出售', content: '销售订单已完成' },
+    { time: new Date(Date.now() - 1200000).toLocaleString('zh-CN'), type: '农田管理', content: '农田信息已更新' }
+  ]
+  return activities
 }
 
 const generateEnvData = (days) => {
@@ -197,82 +167,12 @@ const generateEnvData = (days) => {
   return { dates, temperature, humidity }
 }
 
-// 初始化产量趋势图表
-const initYieldChart = () => {
-  if (!yieldChartRef.value) return
-  
-  yieldChart.value = echarts.init(yieldChartRef.value)
-  updateYieldChart()
-}
-
 // 初始化环境指标图表
 const initEnvChart = () => {
   if (!envChartRef.value) return
   
   envChart.value = echarts.init(envChartRef.value)
   updateEnvChart()
-}
-
-// 更新产量趋势图表
-const updateYieldChart = () => {
-  if (!yieldChart.value) return
-  
-  const days = parseInt(yieldChartPeriod.value.replace('d', ''))
-  const data = generateYieldData(days)
-  
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: '{b}: {c} 吨'
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      boundaryGap: false,
-      data: data.dates,
-      axisLabel: {
-        rotate: 45,
-        fontSize: 10
-      }
-    },
-    yAxis: {
-      type: 'value',
-      name: '产量（吨）',
-      axisLabel: {
-        formatter: '{value}'
-      }
-    },
-    series: [
-      {
-        name: '产量',
-        type: 'line',
-        data: data.values,
-        smooth: true,
-        itemStyle: {
-          color: '#1890ff'
-        },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            {
-              offset: 0,
-              color: 'rgba(24, 144, 255, 0.3)'
-            },
-            {
-              offset: 1,
-              color: 'rgba(24, 144, 255, 0.1)'
-            }
-          ])
-        }
-      }
-    ]
-  }
-  
-  yieldChart.value.setOption(option)
 }
 
 // 更新环境指标图表
@@ -349,15 +249,8 @@ const updateEnvChart = () => {
   envChart.value.setOption(option)
 }
 
-// 更新所有图表
-const updateCharts = () => {
-  updateYieldChart()
-  updateEnvChart()
-}
-
 // 响应式调整
 const handleResize = () => {
-  yieldChart.value?.resize()
   envChart.value?.resize()
 }
 
@@ -366,22 +259,32 @@ const getActivityTypeTag = (type) => {
     '环境监测': 'warning',
     '专家咨询': 'info',
     '农资采购': 'success',
-    '产品出售': 'primary'
+    '产品出售': 'primary',
+    '农田管理': 'default',
+    '系统管理': 'danger'
   }
   return tagMap[type] || 'default'
 }
 
 onMounted(() => {
   fetchTotalFarmlandArea()
-  initYieldChart()
+  fetchConsultationStats()
+  fetchRecentActivities()
   initEnvChart()
   window.addEventListener('resize', handleResize)
+  
+  activityRefreshTimer = setInterval(() => {
+    fetchRecentActivities()
+  }, 30000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
-  yieldChart.value?.dispose()
   envChart.value?.dispose()
+  if (activityRefreshTimer) {
+    clearInterval(activityRefreshTimer)
+    activityRefreshTimer = null
+  }
 })
 </script>
 
@@ -397,7 +300,7 @@ onUnmounted(() => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   flex-shrink: 0;
 }
@@ -463,7 +366,7 @@ onUnmounted(() => {
 
 .charts-section {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
   gap: 20px;
   flex-shrink: 0;
 }
@@ -472,6 +375,10 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 400px;
+}
+
+.chart-card.full-width {
+  grid-column: 1;
 }
 
 .card-header {

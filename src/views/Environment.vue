@@ -5,20 +5,18 @@
       <div class="filter-content">
         <el-form :inline="true" :model="filterForm" class="filter-form">
           <el-form-item label="监测点">
-            <el-select v-model="filterForm.monitorPoint" placeholder="选择监测点">
+            <el-select v-model="filterForm.monitorPoint" placeholder="选择监测点" @change="onMonitorPointChange">
               <el-option label="大棚A" value="greenhouseA"></el-option>
               <el-option label="大棚B" value="greenhouseB"></el-option>
               <el-option label="大棚C" value="greenhouseC"></el-option>
               <el-option label="露天农田" value="openField"></el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="时间范围">
+          <el-form-item label="选择日期">
             <el-date-picker
-              v-model="filterForm.dateRange"
-              type="daterange"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
+              v-model="filterForm.selectedDate"
+              type="date"
+              placeholder="选择日期"
               format="YYYY-MM-DD"
               value-format="YYYY-MM-DD"
             />
@@ -118,7 +116,7 @@ import { Monitor } from '@element-plus/icons-vue'
 
 const filterForm = ref({
   monitorPoint: '',
-  dateRange: []
+  selectedDate: ''
 })
 
 const environmentData = ref({
@@ -167,7 +165,118 @@ const chartRef = ref(null)
 const chart = ref(null)
 const selectedIndicator = ref('temperature')
 
-// 生成模拟历史数据
+const monitorPointConfig = {
+  greenhouseA: {
+    crop: '西红柿',
+    tempRange: [20, 28],
+    humidityRange: [60, 80],
+    lightRange: [6000, 10000],
+    co2Range: [400, 500]
+  },
+  greenhouseB: {
+    crop: '黄瓜',
+    tempRange: [18, 30],
+    humidityRange: [65, 85],
+    lightRange: [5000, 9000],
+    co2Range: [380, 480]
+  },
+  greenhouseC: {
+    crop: '茄子',
+    tempRange: [22, 32],
+    humidityRange: [55, 75],
+    lightRange: [7000, 11000],
+    co2Range: [420, 520]
+  },
+  openField: {
+    crop: '玉米',
+    tempRange: [15, 35],
+    humidityRange: [45, 70],
+    lightRange: [8000, 12000],
+    co2Range: [350, 450]
+  }
+}
+
+const tianjinMonthlyBase = {
+  1: { temp: -2, humidity: 55, light: 5500, co2: 480 },
+  2: { temp: 1, humidity: 50, light: 6000, co2: 470 },
+  3: { temp: 8, humidity: 45, light: 7000, co2: 450 },
+  4: { temp: 15, humidity: 50, light: 7800, co2: 440 },
+  5: { temp: 22, humidity: 55, light: 8500, co2: 430 },
+  6: { temp: 26, humidity: 65, light: 9000, co2: 420 },
+  7: { temp: 28, humidity: 75, light: 9200, co2: 410 },
+  8: { temp: 27, humidity: 75, light: 8800, co2: 415 },
+  9: { temp: 22, humidity: 70, light: 8000, co2: 430 },
+  10: { temp: 15, humidity: 60, light: 7200, co2: 450 },
+  11: { temp: 7, humidity: 55, light: 6000, co2: 465 },
+  12: { temp: -1, humidity: 58, light: 5500, co2: 475 }
+}
+
+const generateYearData = () => {
+  const yearData = {}
+  const baseYear = 2026
+  
+  for (let month = 1; month <= 12; month++) {
+    const daysInMonth = new Date(baseYear, month, 0).getDate()
+    const base = tianjinMonthlyBase[month]
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${baseYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      const dayOfYear = (new Date(baseYear, month - 1, day)).getDay()
+      
+      yearData[dateStr] = {
+        temperature: (base.temp + Math.random() * 8 - 4).toFixed(1) * 1,
+        humidity: (base.humidity + Math.random() * 20 - 10).toFixed(0) * 1,
+        light: Math.floor(base.light + Math.random() * 2000 - 1000),
+        co2: (base.co2 + Math.random() * 60 - 30).toFixed(0) * 1
+      }
+      
+      if (dayOfYear === 0 || dayOfYear === 6) {
+        yearData[dateStr].light = Math.floor(yearData[dateStr].light * 0.8)
+      }
+    }
+  }
+  
+  return yearData
+}
+
+const yearData = generateYearData()
+
+const getEnvironmentDataByDate = (dateStr) => {
+  const monitorPoint = filterForm.value.monitorPoint || 'greenhouseA'
+  const config = monitorPointConfig[monitorPoint] || monitorPointConfig['greenhouseA']
+  
+  const tempMin = config.tempRange[0]
+  const tempMax = config.tempRange[1]
+  const humidityMin = config.humidityRange[0]
+  const humidityMax = config.humidityRange[1]
+  const lightMin = config.lightRange[0]
+  const lightMax = config.lightRange[1]
+  const co2Min = config.co2Range[0]
+  const co2Max = config.co2Range[1]
+  
+  const temperature = (tempMin + Math.random() * (tempMax - tempMin)).toFixed(1) * 1
+  const humidity = Math.floor(humidityMin + Math.random() * (humidityMax - humidityMin))
+  const light = Math.floor(lightMin + Math.random() * (lightMax - lightMin))
+  const co2 = Math.floor(co2Min + Math.random() * (co2Max - co2Min))
+  
+  const tempStatus = temperature >= tempMin && temperature <= tempMax ? '正常' : 
+                    temperature < tempMin ? '警告' : '异常'
+  const humidityStatus = humidity >= humidityMin && humidity <= humidityMax ? '正常' : '异常'
+  const lightStatus = light >= lightMin && light <= lightMax ? '正常' : '异常'
+  const co2Status = co2 >= co2Min && co2 <= co2Max ? '正常' : '异常'
+  
+  return {
+    temperature: temperature,
+    temperatureStatus: tempStatus,
+    humidity: humidity,
+    humidityStatus: humidityStatus,
+    light: light,
+    lightStatus: lightStatus,
+    co2: co2,
+    co2Status: co2Status
+  }
+}
+
 const generateHistoricalData = (days = 7) => {
   const dates = []
   const data = {
@@ -183,11 +292,20 @@ const generateHistoricalData = (days = 7) => {
     date.setDate(date.getDate() - i)
     dates.push(`${date.getMonth() + 1}/${date.getDate()}`)
     
-    // 生成模拟数据
-    data.temperature.push((25 + Math.random() * 4 - 2).toFixed(1) * 1)
-    data.humidity.push((65 + Math.random() * 10 - 5).toFixed(1) * 1)
-    data.light.push(Math.floor(7000 + Math.random() * 2000))
-    data.co2.push((450 + Math.random() * 50 - 25).toFixed(0) * 1)
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const dayData = yearData[dateStr]
+    
+    if (dayData) {
+      data.temperature.push(dayData.temperature)
+      data.humidity.push(dayData.humidity)
+      data.light.push(dayData.light)
+      data.co2.push(dayData.co2)
+    } else {
+      data.temperature.push((25 + Math.random() * 4 - 2).toFixed(1) * 1)
+      data.humidity.push((65 + Math.random() * 10 - 5).toFixed(1) * 1)
+      data.light.push(Math.floor(7000 + Math.random() * 2000))
+      data.co2.push((450 + Math.random() * 50 - 25).toFixed(0) * 1)
+    }
   }
   
   return { dates, data }
@@ -326,8 +444,13 @@ const handleResize = () => {
 }
 
 const searchData = () => {
-  // 模拟查询数据
-  console.log('查询数据:', filterForm.value)
+  const dateStr = filterForm.value.selectedDate
+  environmentData.value = getEnvironmentDataByDate(dateStr)
+  updateChart()
+}
+
+const onMonitorPointChange = () => {
+  environmentData.value = getEnvironmentDataByDate(filterForm.value.selectedDate)
   updateChart()
 }
 
@@ -355,6 +478,7 @@ const viewDetails = (row) => {
 }
 
 onMounted(() => {
+  environmentData.value = getEnvironmentDataByDate()
   initChart()
   window.addEventListener('resize', handleResize)
 })

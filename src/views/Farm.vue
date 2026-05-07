@@ -5,10 +5,6 @@
         <el-icon><plus /></el-icon>
         新增农田
       </el-button>
-      <el-button type="success" @click="importData">
-        <el-icon><upload /></el-icon>
-        导入数据
-      </el-button>
       <el-button @click="exportData">
         <el-icon><download /></el-icon>
         导出数据
@@ -137,7 +133,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { Plus, Upload, Download } from '@element-plus/icons-vue'
+import { Plus, Download } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const filterForm = reactive({
@@ -294,12 +290,38 @@ const resetFilter = () => {
   fetchFarmList()
 }
 
-const importData = () => {
-  ElMessage.info('导入功能开发中')
-}
-
 const exportData = () => {
-  ElMessage.info('导出功能开发中')
+  if (farmList.value.length === 0) {
+    ElMessage.warning('没有数据可以导出')
+    return
+  }
+  
+  const headers = ['农田名称', '区域', '面积(亩)', '土壤类型', '种植作物', '状态']
+  const rows = farmList.value.map(item => [
+    item.name,
+    item.area,
+    item.acreage,
+    item.soilType,
+    item.crop,
+    item.status
+  ])
+  
+  let content = headers.join('\t') + '\n'
+  rows.forEach(row => {
+    content += row.join('\t') + '\n'
+  })
+  
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `农田信息_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.txt`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  
+  ElMessage.success('导出成功')
 }
 
 const getFarmStatusTag = (status) => {
