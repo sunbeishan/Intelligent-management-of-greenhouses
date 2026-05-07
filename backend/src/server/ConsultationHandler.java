@@ -1,6 +1,7 @@
 package server;
 
 import dao.ConsultationDAO;
+import dao.ActivityDao;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -132,6 +133,7 @@ public class ConsultationHandler implements HttpHandler {
 
             if (consultationDAO.addConsultation(id, expertId, expertName, userName, subject)) {
                 consultationDAO.addMessage(id, "user", content);
+                ActivityDao.recordActivity("专家咨询", subject + "咨询已提交");
                 sendResponse(exchange, 201, "{\"message\": \"Consultation added successfully\"}");
             } else {
                 sendResponse(exchange, 500, "{\"message\": \"Failed to add consultation\"}");

@@ -58,8 +58,9 @@ public class LoginHandler implements HttpHandler {
             return;
         }
 
-        String response = String.format("{\"success\": true, \"message\": \"登录成功\", \"user\": {\"id\": %d, \"username\": \"%s\", \"name\": \"%s\", \"role\": \"%s\", \"status\": \"%s\"}}",
-                user.getId(), user.getUsername(), user.getName(), user.getRole(), user.getStatus());
+        String avatar = user.getAvatar() != null ? user.getAvatar() : "";
+        String response = String.format("{\"success\": true, \"message\": \"登录成功\", \"user\": {\"id\": %d, \"username\": \"%s\", \"name\": \"%s\", \"role\": \"%s\", \"status\": \"%s\", \"avatar\": \"%s\"}}",
+                user.getId(), user.getUsername(), user.getName(), user.getRole(), user.getStatus(), avatar);
         SimpleHttpServer.sendResponse(exchange, 200, response);
     }
 

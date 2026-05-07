@@ -14,11 +14,9 @@ public class SimpleHttpServer {
 
     public static void main(String[] args) throws IOException {
         new InventoryDao().syncAllInventory();
-<<<<<<< Updated upstream
 
-=======
+
         
->>>>>>> Stashed changes
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
         server.createContext("/api/materials", new MaterialHandler());
@@ -41,6 +39,7 @@ public class SimpleHttpServer {
         server.createContext("/api/farmland", new FarmlandHandler());
         server.createContext("/api/experts", new ExpertHandler());
         server.createContext("/api/expert/login", new ExpertLoginHandler());
+        server.createContext("/api/activities", new ActivityHandler());
 
         server.setExecutor(null);
         server.start();

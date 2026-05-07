@@ -13,6 +13,14 @@
           </div>
           <el-table :data="users" style="width: 100%" v-loading="loading">
             <el-table-column prop="id" label="ID" width="80"></el-table-column>
+            <el-table-column label="头像" width="80">
+              <template #default="scope">
+                <img v-if="scope.row.avatar" :src="scope.row.avatar" class="avatar-mini" alt="头像" />
+                <div v-else class="avatar-placeholder-mini">
+                  {{ scope.row.name ? scope.row.name.charAt(0) : '?' }}
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="username" label="用户名"></el-table-column>
             <el-table-column prop="name" label="姓名" width="120"></el-table-column>
             <el-table-column prop="role" label="角色" width="120"></el-table-column>
@@ -130,6 +138,15 @@
     <!-- 新增/编辑用户对话框 -->
     <el-dialog v-model="userDialogVisible" :title="isEditUser ? '编辑用户' : '新增用户'" width="500px">
       <el-form :model="userForm" :rules="userRules" ref="userFormRef" label-width="80px">
+        <el-form-item label="头像">
+          <div class="avatar-upload">
+            <img v-if="userForm.avatar" :src="userForm.avatar" class="avatar-preview" />
+            <div v-else class="avatar-placeholder">
+              <span>点击上传头像</span>
+            </div>
+            <input type="file" accept="image/*" class="avatar-input" @change="handleUserAvatarUpload" />
+          </div>
+        </el-form-item>
         <el-form-item label="用户名" prop="username">
           <el-input v-model="userForm.username"></el-input>
         </el-form-item>
@@ -251,7 +268,8 @@ const userForm = reactive({
   password: '',
   name: '',
   role: '',
-  status: '启用'
+  status: '启用',
+  avatar: ''
 })
 
 const roleForm = reactive({
@@ -350,7 +368,8 @@ const addUser = () => {
     password: '',
     name: '',
     role: '',
-    status: '启用'
+    status: '启用',
+    avatar: ''
   })
   userDialogVisible.value = true
 }
@@ -363,7 +382,8 @@ const editUser = (row) => {
     password: '',
     name: row.name,
     role: row.role,
-    status: row.status
+    status: row.status,
+    avatar: row.avatar || ''
   })
   userDialogVisible.value = true
 }
@@ -522,18 +542,16 @@ const editExpert = (row) => {
 const handleAvatarUpload = (event) => {
   const file = event.target.files[0]
   if (file) {
-    // 压缩图片
     const reader = new FileReader()
     reader.onload = (e) => {
       const img = new Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
-        // 限制最大宽度和高度
         const maxWidth = 200
         const maxHeight = 200
         let width = img.width
         let height = img.height
-        
+
         if (width > height) {
           if (width > maxWidth) {
             height = height * (maxWidth / width)
@@ -545,14 +563,53 @@ const handleAvatarUpload = (event) => {
             width = maxWidth
           }
         }
-        
+
         canvas.width = width
         canvas.height = height
-        
+
         const ctx = canvas.getContext('2d')
         ctx.drawImage(img, 0, 0, width, height)
-        
+
         expertForm.avatar = canvas.toDataURL('image/jpeg', 0.6)
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+const handleUserAvatarUpload = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const maxWidth = 200
+        const maxHeight = 200
+        let width = img.width
+        let height = img.height
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = height * (maxWidth / width)
+            width = maxWidth
+          }
+        } else {
+          if (height > maxHeight) {
+            height = height * (maxHeight / height)
+            width = maxWidth
+          }
+        }
+
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+
+        userForm.avatar = canvas.toDataURL('image/jpeg', 0.6)
       }
       img.src = e.target.result
     }

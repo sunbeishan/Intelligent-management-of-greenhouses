@@ -116,6 +116,8 @@ CREATE TABLE IF NOT EXISTS users (
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+ALTER TABLE users MODIFY COLUMN avatar TEXT COMMENT '头像路径';
+
 -- 角色表
 CREATE TABLE IF NOT EXISTS roles (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -144,3 +146,83 @@ CREATE TABLE IF NOT EXISTS plant_recognition (
     confidence DECIMAL(5,4) COMMENT '置信度',
     recognize_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '识别时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS farmland (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL COMMENT '农田名称',
+    area VARCHAR(50) COMMENT '区域（东区、西区、南区、北区）',
+    acreage DECIMAL(10,2) COMMENT '面积（亩）',
+    soil_type VARCHAR(50) COMMENT '土壤类型',
+    crop VARCHAR(100) COMMENT '种植作物',
+    status VARCHAR(20) DEFAULT '种植中' COMMENT '状态（种植中/休耕）',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 插入测试数据
+INSERT INTO farmland (name, area, acreage, soil_type, crop, status) VALUES
+('大棚A', '东区', 50, '沙壤土', '西红柿', '种植中'),
+('大棚B', '东区', 45, '壤土', '黄瓜', '种植中'),
+('大棚C', '西区', 60, '黏土', '茄子', '种植中'),
+('露天农田1', '南区', 120, '沙壤土', '玉米', '种植中'),
+('露天农田2', '北区', 100, '壤土', '小麦', '休耕');
+
+CREATE TABLE IF NOT EXISTS expert (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
+    password VARCHAR(255) NOT NULL COMMENT '密码',
+    name VARCHAR(100) COMMENT '姓名',
+    phone VARCHAR(20) COMMENT '电话',
+    email VARCHAR(100) COMMENT '邮箱',
+    specialty VARCHAR(200) COMMENT '专业领域',
+    status VARCHAR(20) DEFAULT '启用' COMMENT '状态',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO expert (username, password, name, phone, email, specialty) VALUES
+('expert1', '123456', '张专家', '13800138001', 'zhang@example.com', '病虫害防治'),
+('expert2', '123456', '李专家', '13800138002', 'li@example.com', '土壤改良');
+
+INSERT INTO roles (name, description) VALUES ('专家', '专家角色');
+
+ALTER TABLE expert ADD COLUMN avatar VARCHAR(500) COMMENT '头像路径';
+
+CREATE TABLE IF NOT EXISTS consultations (
+    id VARCHAR(50) PRIMARY KEY COMMENT '咨询编号',
+    expert_id INT COMMENT '专家ID',
+    expert_name VARCHAR(100) COMMENT '专家姓名',
+    user_name VARCHAR(100) COMMENT '用户姓名',
+    subject VARCHAR(200) COMMENT '咨询主题',
+    status VARCHAR(20) DEFAULT '待处理' COMMENT '状态',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    FOREIGN KEY (expert_id) REFERENCES expert(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    consultation_id VARCHAR(50) COMMENT '咨询编号',
+    sender VARCHAR(20) COMMENT '发送者',
+    content TEXT COMMENT '消息内容',
+    send_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+    FOREIGN KEY (consultation_id) REFERENCES consultations(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 活动记录表
+CREATE TABLE IF NOT EXISTS activities (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(50) COMMENT '类型（环境监测、专家咨询、农资采购、产品出售、农田管理、系统管理）',
+    content VARCHAR(500) COMMENT '活动内容',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 插入测试数据 - 活动记录
+INSERT INTO activities (type, content, create_time) VALUES
+('环境监测', '大棚A温度正常', '2026-05-07 08:30:00'),
+('环境监测', '大棚B湿度正常', '2026-05-07 08:25:00'),
+('专家咨询', '病虫害防治咨询已提交', '2026-05-07 08:20:00'),
+('农资采购', '尿素采购单已创建', '2026-05-07 08:15:00'),
+('产品出售', '西红柿销售订单已完成', '2026-05-07 08:10:00'),
+('农田管理', '农田信息已更新', '2026-05-07 08:05:00'),
+('环境监测', '大棚C光照正常', '2026-05-07 07:55:00'),
+('系统管理', '用户登录成功', '2026-05-07 07:30:00');

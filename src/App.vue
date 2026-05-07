@@ -88,7 +88,9 @@
         <div class="nav-right">
           <el-dropdown>
             <span class="user-info">
-              <el-avatar :size="32" :src="userAvatar"></el-avatar>
+              <el-avatar :size="32" :src="user.avatar || undefined">
+                {{ user.name ? user.name.charAt(0) : '?' }}
+              </el-avatar>
               <span>{{ user.name }}</span>
             </span>
             <template #dropdown>

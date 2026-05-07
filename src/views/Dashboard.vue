@@ -96,7 +96,6 @@ const consultCount = ref(0)
 const solvedCount = ref(0)
 
 const recentActivities = ref([])
-let activityRefreshTimer = null
 
 const fetchTotalFarmlandArea = async () => {
   try {
@@ -272,19 +271,11 @@ onMounted(() => {
   fetchRecentActivities()
   initEnvChart()
   window.addEventListener('resize', handleResize)
-  
-  activityRefreshTimer = setInterval(() => {
-    fetchRecentActivities()
-  }, 30000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   envChart.value?.dispose()
-  if (activityRefreshTimer) {
-    clearInterval(activityRefreshTimer)
-    activityRefreshTimer = null
-  }
 })
 </script>
 
@@ -400,6 +391,7 @@ onUnmounted(() => {
 .activity-card {
   flex-shrink: 0;
   min-height: 300px;
+  max-height: 400px;
   display: flex;
   flex-direction: column;
   margin-top: 0;
@@ -407,6 +399,7 @@ onUnmounted(() => {
 
 .activity-card :deep(.el-card__body) {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 </style>

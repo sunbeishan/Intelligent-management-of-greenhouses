@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpHandler;
 import dao.SaleDao;
 import dao.ProductDao;
 import dao.InventoryDao;
+import dao.ActivityDao;
 import model.Sale;
 
 import java.io.IOException;
@@ -16,11 +17,11 @@ public class SaleHandler implements HttpHandler {
     private SaleDao saleDao = new SaleDao();
     private ProductDao productDao = new ProductDao();
     private InventoryDao inventoryDao = new InventoryDao();
-    
+
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         String method = exchange.getRequestMethod();
-        
+
         switch (method) {
             case "GET":
                 handleGet(exchange);
@@ -32,31 +33,30 @@ public class SaleHandler implements HttpHandler {
                 SimpleHttpServer.sendResponse(exchange, 405, "{\"error\": \"Method not allowed\"}");
         }
     }
-    
+
     private void handleGet(HttpExchange exchange) throws IOException {
         List<Sale> sales = saleDao.getAllSales();
         SimpleHttpServer.sendResponse(exchange, 200, toJsonList(sales));
     }
-    
+
     private void handlePost(HttpExchange exchange) throws IOException {
         String body = SimpleHttpServer.readRequestBody(exchange);
         Sale sale = parseSale(body);
-        
-        // 生成销售编号
-        String id = "S" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + 
+
+        String id = "S" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) +
                     String.format("%03d", (int)(Math.random() * 1000));
         sale.setId(id);
-        
+
         boolean success = saleDao.addSale(sale);
         if (success) {
-            // 更新产品库存
             updateProductStock(sale);
+            ActivityDao.recordActivity("产品出售", sale.getProductName() + "销售订单已完成");
             SimpleHttpServer.sendResponse(exchange, 201, "{\"message\": \"Sale added successfully\", \"id\": \"" + id + "\"}");
         } else {
             SimpleHttpServer.sendResponse(exchange, 500, "{\"error\": \"Failed to add sale\"}");
         }
     }
-    
+
     private void updateProductStock(Sale sale) {
         List<model.Product> products = new ProductDao().getAllProducts();
         for (model.Product p : products) {
@@ -67,7 +67,7 @@ public class SaleHandler implements HttpHandler {
             }
         }
     }
-    
+
     private Sale parseSale(String json) {
         Sale s = new Sale();
         s.setProductName(extractValue(json, "productName"));
@@ -78,7 +78,7 @@ public class SaleHandler implements HttpHandler {
         s.setSaleDate(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
         return s;
     }
-    
+
     private String extractValue(String json, String key) {
         String pattern = "\"" + key + "\"\\s*:\\s*\"([^\"]*)\"";
         java.util.regex.Pattern r = java.util.regex.Pattern.compile(pattern);
@@ -94,12 +94,12 @@ public class SaleHandler implements HttpHandler {
         }
         return "";
     }
-    
+
     private String toJson(Sale s) {
         return String.format("{\"id\":\"%s\",\"productName\":\"%s\",\"quantity\":%d,\"unitPrice\":%.2f,\"totalPrice\":%.2f,\"customer\":\"%s\",\"saleDate\":\"%s\"}",
                 s.getId(), s.getProductName(), s.getQuantity(), s.getUnitPrice(), s.getTotalPrice(), s.getCustomer(), s.getSaleDate());
     }
-    
+
     private String toJsonList(List<Sale> sales) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < sales.size(); i++) {

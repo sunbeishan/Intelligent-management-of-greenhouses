@@ -16,7 +16,7 @@ public class UserHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
-        
+
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
         exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
@@ -94,6 +94,7 @@ public class UserHandler implements HttpHandler {
         sb.append("\"name\":\"").append(escapeJson(user.getName())).append("\",");
         sb.append("\"role\":\"").append(escapeJson(user.getRole())).append("\",");
         sb.append("\"status\":\"").append(escapeJson(user.getStatus())).append("\",");
+        sb.append("\"avatar\":\"").append(escapeJson(user.getAvatar())).append("\",");
         sb.append("\"createTime\":\"").append(user.getCreateTime()).append("\"");
         sb.append("}");
         return sb.toString();
@@ -117,6 +118,7 @@ public class UserHandler implements HttpHandler {
         user.setName(extractString(json, "name"));
         user.setRole(extractString(json, "role"));
         user.setStatus(extractString(json, "status"));
+        user.setAvatar(extractString(json, "avatar"));
         return user;
     }
 

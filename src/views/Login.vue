@@ -83,12 +83,9 @@ const handleLogin = async () => {
         name: data.user.name, 
         username: data.user.username,
         role: data.user.role,
-        status: data.user.status 
+        status: data.user.status,
+        avatar: data.user.avatar || ''
       })
-      
-      if (loginForm.remember) {
-        localStorage.setItem('user', JSON.stringify(data.user))
-      }
       
       ElMessage.success('登录成功')
       router.push('/dashboard')
