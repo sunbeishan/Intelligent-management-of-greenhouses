@@ -18,7 +18,9 @@
       <div class="expert-grid">
         <el-card v-for="expert in experts" :key="expert.id" shadow="hover" class="expert-card">
           <div class="expert-content">
-            <el-avatar :size="80" :src="expert.avatar"></el-avatar>
+            <el-avatar :size="80" :src="expert.avatar && expert.avatar !== '' ? expert.avatar : undefined">
+              {{ expert.name?.charAt(0) || '?' }}
+            </el-avatar>
             <div class="expert-info">
               <h3>{{ expert.name }}</h3>
               <p class="expert-title">{{ expert.title }}</p>
@@ -113,10 +115,11 @@
             v-model="replyContent"
             type="textarea"
             :rows="4"
-            placeholder="请输入回复内容"
+            placeholder="咨询完成"
           ></el-input>
           <div class="reply-actions">
             <el-button @click="detailDialogVisible = false">关闭</el-button>
+            <el-button type="success" @click="completeConsultation">完成咨询</el-button>
             <el-button type="primary" @click="sendReply">发送消息</el-button>
           </div>
         </div>
@@ -126,7 +129,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
@@ -139,6 +142,9 @@ const loading = ref(false)
 const replyContent = ref('')
 
 const experts = ref([])
+
+let consultationPollingTimer = null
+let currentConsultationPollingTimer = null
 
 const fetchExperts = async () => {
   try {
@@ -195,9 +201,56 @@ const fetchConsultations = async () => {
   }
 }
 
+const fetchCurrentConsultation = async () => {
+  if (!currentConsultation.id || !detailDialogVisible.value) return
+  try {
+    const response = await fetch(`/api/consultations/${currentConsultation.id}`)
+    const data = await response.json()
+    const oldMessageCount = currentConsultation.messages.length
+    Object.assign(currentConsultation, data)
+    if (currentConsultation.messages.length > oldMessageCount) {
+      nextTick(() => {
+        if (messageList.value) {
+          messageList.value.scrollTop = messageList.value.scrollHeight
+        }
+      })
+    }
+  } catch (error) {
+    console.error('获取咨询详情失败', error)
+  }
+}
+
+const startPolling = () => {
+  consultationPollingTimer = setInterval(fetchConsultations, 3000)
+}
+
+const stopPolling = () => {
+  if (consultationPollingTimer) {
+    clearInterval(consultationPollingTimer)
+    consultationPollingTimer = null
+  }
+}
+
+const startCurrentConsultationPolling = () => {
+  currentConsultationPollingTimer = setInterval(fetchCurrentConsultation, 1000)
+}
+
+const stopCurrentConsultationPolling = () => {
+  if (currentConsultationPollingTimer) {
+    clearInterval(currentConsultationPollingTimer)
+    currentConsultationPollingTimer = null
+  }
+}
+
 onMounted(() => {
   fetchExperts()
   fetchConsultations()
+  startPolling()
+})
+
+onUnmounted(() => {
+  stopPolling()
+  stopCurrentConsultationPolling()
 })
 
 const openConsultDialog = (expert = null) => {
@@ -243,10 +296,16 @@ const submitConsultation = async () => {
 }
 
 const viewConsultation = async (row) => {
+  if (row.status === '完成咨询') {
+    ElMessage.info('该咨询已完成，无法再进行操作')
+    return
+  }
+  
   const response = await fetch(`/api/consultations/${row.id}`)
   const data = await response.json()
   Object.assign(currentConsultation, data)
   detailDialogVisible.value = true
+  startCurrentConsultationPolling()
   
   nextTick(() => {
     if (messageList.value) {
@@ -254,6 +313,12 @@ const viewConsultation = async (row) => {
     }
   })
 }
+
+watch(detailDialogVisible, (newVal) => {
+  if (!newVal) {
+    stopCurrentConsultationPolling()
+  }
+})
 
 const sendReply = async () => {
   if (!replyContent.value.trim()) return
@@ -296,11 +361,31 @@ const sendReply = async () => {
   })
 }
 
+const completeConsultation = async () => {
+  fetch('/api/consultations/status', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: currentConsultation.id, status: '完成咨询' })
+  }).then(response => {
+    if (response.ok) {
+      ElMessage.success('咨询已完成')
+      currentConsultation.status = '完成咨询'
+      detailDialogVisible.value = false
+      fetchConsultations()
+    } else {
+      ElMessage.error('操作失败')
+    }
+  }).catch(() => {
+    ElMessage.error('网络错误')
+  })
+}
+
 const getConsultationStatusTag = (status) => {
   const tagMap = {
     '已回复': 'success',
     '处理中': 'warning',
-    '待处理': 'info'
+    '待处理': 'info',
+    '完成咨询': 'success'
   }
   return tagMap[status] || 'default'
 }

@@ -2,6 +2,10 @@
   <div class="materials-inventory">
     <!-- 操作按钮 -->
     <div class="action-bar">
+      <el-button type="primary" @click="openAddDialog">
+        <el-icon><plus /></el-icon>
+        新增库存
+      </el-button>
       <el-button type="primary" @click="exportInventory">
         <el-icon><download /></el-icon>
         导出库存
@@ -66,25 +70,62 @@
         </el-table-column>
         <el-table-column prop="unit" label="单位" width="80"></el-table-column>
         <el-table-column prop="lastUpdate" label="更新时间" width="180"></el-table-column>
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="180">
           <template #default="scope">
-            <el-button type="primary" size="small" @click="viewDetail(scope.row)">
-              详情
-            </el-button>
+            <el-button type="primary" size="small" @click="openEditDialog(scope.row)">编辑</el-button>
+            <el-button type="danger" size="small" @click="deleteInventory(scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
+
+    <!-- 新增/编辑对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="isEdit ? '编辑库存' : '新增库存'"
+      width="500px"
+    >
+      <el-form :model="inventoryForm" :rules="inventoryRules" ref="inventoryFormRef" label-width="80px">
+        <el-form-item label="名称" prop="name">
+          <el-input v-model="inventoryForm.name" placeholder="请输入名称"></el-input>
+        </el-form-item>
+        <el-form-item label="类型" prop="type">
+          <el-select v-model="inventoryForm.type" placeholder="请选择类型">
+            <el-option label="农资" value="农资"></el-option>
+            <el-option label="产品" value="产品"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="类别" prop="category">
+          <el-input v-model="inventoryForm.category" placeholder="请输入类别"></el-input>
+        </el-form-item>
+        <el-form-item label="规格" prop="spec">
+          <el-input v-model="inventoryForm.spec" placeholder="请输入规格"></el-input>
+        </el-form-item>
+        <el-form-item label="库存" prop="stock">
+          <el-input v-model.number="inventoryForm.stock" placeholder="请输入库存数量"></el-input>
+        </el-form-item>
+        <el-form-item label="单位" prop="unit">
+          <el-input v-model="inventoryForm.unit" placeholder="请输入单位"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitInventory">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { Download, Warning } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { Download, Warning, Plus } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const loading = ref(false)
 const inventory = ref([])
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const inventoryFormRef = ref(null)
 
 const filterForm = ref({
   name: '',
@@ -92,7 +133,25 @@ const filterForm = ref({
   status: ''
 })
 
-// API 调用
+const inventoryForm = reactive({
+  id: '',
+  name: '',
+  type: '',
+  category: '',
+  spec: '',
+  stock: 0,
+  unit: ''
+})
+
+const inventoryRules = {
+  name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
+  type: [{ required: true, message: '请选择类型', trigger: 'blur' }],
+  category: [{ required: true, message: '请输入类别', trigger: 'blur' }],
+  spec: [{ required: true, message: '请输入规格', trigger: 'blur' }],
+  stock: [{ required: true, message: '请输入库存数量', trigger: 'blur' }],
+  unit: [{ required: true, message: '请输入单位', trigger: 'blur' }]
+}
+
 const fetchInventory = async () => {
   loading.value = true
   try {
@@ -119,8 +178,85 @@ onMounted(() => {
   fetchInventory()
 })
 
+const openAddDialog = () => {
+  isEdit.value = false
+  inventoryForm.id = ''
+  inventoryForm.name = ''
+  inventoryForm.type = ''
+  inventoryForm.category = ''
+  inventoryForm.spec = ''
+  inventoryForm.stock = 0
+  inventoryForm.unit = ''
+  dialogVisible.value = true
+}
+
+const openEditDialog = (row) => {
+  isEdit.value = true
+  inventoryForm.id = row.id
+  inventoryForm.name = row.name
+  inventoryForm.type = row.type
+  inventoryForm.category = row.category
+  inventoryForm.spec = row.spec
+  inventoryForm.stock = row.stock
+  inventoryForm.unit = row.unit
+  dialogVisible.value = true
+}
+
+const submitInventory = async () => {
+  inventoryFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const method = isEdit.value ? 'PUT' : 'POST'
+        const url = isEdit.value ? `/api/inventory/${inventoryForm.id}` : '/api/inventory'
+        
+        const response = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(inventoryForm)
+        })
+        
+        const data = await response.json()
+        
+        if (data.success) {
+          ElMessage.success(isEdit.value ? '修改成功' : '添加成功')
+          dialogVisible.value = false
+          fetchInventory()
+        } else {
+          ElMessage.error(data.message || (isEdit.value ? '修改失败' : '添加失败'))
+        }
+      } catch (error) {
+        ElMessage.error('操作失败')
+      }
+    }
+  })
+}
+
+const deleteInventory = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该库存吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const response = await fetch(`/api/inventory/${row.id}`, {
+      method: 'DELETE'
+    })
+    
+    const data = await response.json()
+    
+    if (data.success) {
+      ElMessage.success('删除成功')
+      fetchInventory()
+    } else {
+      ElMessage.error(data.message || '删除失败')
+    }
+  } catch (error) {
+    ElMessage.info('已取消删除')
+  }
+}
+
 const exportInventory = () => {
-  // 导出CSV
   let csv = '编号,名称,类型,类别,规格,库存,单位,更新时间\n'
   inventory.value.forEach(item => {
     csv += `${item.id},${item.name},${item.type},${item.category},${item.spec},${item.stock},${item.unit},${item.lastUpdate}\n`
@@ -154,10 +290,6 @@ const searchInventory = () => {
 const resetFilter = () => {
   filterForm.value = { name: '', type: '', status: '' }
   fetchInventory()
-}
-
-const viewDetail = (row) => {
-  ElMessage.info(`${row.name} - 当前库存: ${row.stock}${row.unit}`)
 }
 </script>
 

@@ -114,7 +114,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ChatDotRound,
@@ -132,6 +132,9 @@ const loading = ref(false)
 const expertName = ref('')
 const expertAvatar = ref('')
 const currentExpertId = ref(0)
+
+let consultationPollingTimer = null
+let currentConsultationPollingTimer = null
 
 const loadExpertInfo = () => {
   const expertStr = localStorage.getItem('expert')
@@ -185,9 +188,56 @@ const fetchExpertConsultations = async () => {
   }
 }
 
+const fetchCurrentConsultation = async () => {
+  if (!currentConsultation.id || !dialogVisible.value) return
+  try {
+    const response = await fetch(`/api/consultations/${currentConsultation.id}`)
+    const data = await response.json()
+    const oldMessageCount = currentConsultation.messages.length
+    Object.assign(currentConsultation, data)
+    if (currentConsultation.messages.length > oldMessageCount) {
+      nextTick(() => {
+        if (messageList.value) {
+          messageList.value.scrollTop = messageList.value.scrollHeight
+        }
+      })
+    }
+  } catch (error) {
+    console.error('获取咨询详情失败', error)
+  }
+}
+
+const startPolling = () => {
+  consultationPollingTimer = setInterval(fetchExpertConsultations, 1000)
+}
+
+const stopPolling = () => {
+  if (consultationPollingTimer) {
+    clearInterval(consultationPollingTimer)
+    consultationPollingTimer = null
+  }
+}
+
+const startCurrentConsultationPolling = () => {
+  currentConsultationPollingTimer = setInterval(fetchCurrentConsultation, 2000)
+}
+
+const stopCurrentConsultationPolling = () => {
+  if (currentConsultationPollingTimer) {
+    clearInterval(currentConsultationPollingTimer)
+    currentConsultationPollingTimer = null
+  }
+}
+
 onMounted(() => {
   loadExpertInfo()
   fetchExpertConsultations()
+  startPolling()
+})
+
+onUnmounted(() => {
+  stopPolling()
+  stopCurrentConsultationPolling()
 })
 
 const viewConsultationDetail = async (row) => {
@@ -195,6 +245,7 @@ const viewConsultationDetail = async (row) => {
   const data = await response.json()
   Object.assign(currentConsultation, data)
   dialogVisible.value = true
+  startCurrentConsultationPolling()
   
   nextTick(() => {
     if (messageList.value) {
@@ -202,6 +253,12 @@ const viewConsultationDetail = async (row) => {
     }
   })
 }
+
+watch(dialogVisible, (newVal) => {
+  if (!newVal) {
+    stopCurrentConsultationPolling()
+  }
+})
 
 const sendReply = async () => {
   if (!replyContent.value.trim()) return

@@ -3,13 +3,16 @@ package server;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import dao.ProductDao;
+import dao.InventoryDao;
 import model.Product;
+import model.Inventory;
 
 import java.io.IOException;
 import java.util.List;
 
 public class ProductHandler implements HttpHandler {
     private ProductDao productDao = new ProductDao();
+    private InventoryDao inventoryDao = new InventoryDao();
     
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -54,6 +57,14 @@ public class ProductHandler implements HttpHandler {
         Product product = parseProduct(body);
         boolean success = productDao.addProduct(product);
         if (success) {
+            Inventory inventory = new Inventory();
+            inventory.setName(product.getName());
+            inventory.setType("产品");
+            inventory.setCategory(product.getType());
+            inventory.setSpec(product.getSpec());
+            inventory.setStock(product.getStock());
+            inventory.setUnit(product.getUnit());
+            inventoryDao.insertInventory(inventory);
             SimpleHttpServer.sendResponse(exchange, 201, "{\"message\": \"Product added successfully\"}");
         } else {
             SimpleHttpServer.sendResponse(exchange, 500, "{\"error\": \"Failed to add product\"}");
@@ -66,8 +77,11 @@ public class ProductHandler implements HttpHandler {
             String body = SimpleHttpServer.readRequestBody(exchange);
             Product product = parseProduct(body);
             product.setId(id);
+            
+            Product oldProduct = productDao.getProductById(id);
             boolean success = productDao.updateProduct(product);
             if (success) {
+                inventoryDao.updateInventoryStock(oldProduct.getName(), "产品", product.getStock() - oldProduct.getStock());
                 SimpleHttpServer.sendResponse(exchange, 200, "{\"message\": \"Product updated successfully\"}");
             } else {
                 SimpleHttpServer.sendResponse(exchange, 500, "{\"error\": \"Failed to update product\"}");
@@ -78,8 +92,10 @@ public class ProductHandler implements HttpHandler {
     private void handleDelete(HttpExchange exchange, String path) throws IOException {
         if (path.matches("/api/products/\\d+")) {
             int id = Integer.parseInt(path.substring(path.lastIndexOf("/") + 1));
+            Product product = productDao.getProductById(id);
             boolean success = productDao.deleteProduct(id);
             if (success) {
+                inventoryDao.updateInventoryStock(product.getName(), "产品", -product.getStock());
                 SimpleHttpServer.sendResponse(exchange, 200, "{\"message\": \"Product deleted successfully\"}");
             } else {
                 SimpleHttpServer.sendResponse(exchange, 500, "{\"error\": \"Failed to delete product\"}");

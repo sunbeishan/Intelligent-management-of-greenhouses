@@ -3,13 +3,16 @@ package server;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import dao.MaterialDao;
+import dao.InventoryDao;
 import model.Material;
+import model.Inventory;
 
 import java.io.IOException;
 import java.util.List;
 
 public class MaterialHandler implements HttpHandler {
     private MaterialDao materialDao = new MaterialDao();
+    private InventoryDao inventoryDao = new InventoryDao();
     
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -54,6 +57,14 @@ public class MaterialHandler implements HttpHandler {
         Material material = parseMaterial(body);
         boolean success = materialDao.addMaterial(material);
         if (success) {
+            Inventory inventory = new Inventory();
+            inventory.setName(material.getName());
+            inventory.setType("农资");
+            inventory.setCategory(material.getType());
+            inventory.setSpec(material.getSpec());
+            inventory.setStock(material.getStock());
+            inventory.setUnit(material.getUnit());
+            inventoryDao.insertInventory(inventory);
             SimpleHttpServer.sendResponse(exchange, 201, "{\"message\": \"Material added successfully\"}");
         } else {
             SimpleHttpServer.sendResponse(exchange, 500, "{\"error\": \"Failed to add material\"}");
@@ -66,8 +77,11 @@ public class MaterialHandler implements HttpHandler {
             String body = SimpleHttpServer.readRequestBody(exchange);
             Material material = parseMaterial(body);
             material.setId(id);
+            
+            Material oldMaterial = materialDao.getMaterialById(id);
             boolean success = materialDao.updateMaterial(material);
             if (success) {
+                inventoryDao.updateInventoryStock(oldMaterial.getName(), "农资", material.getStock() - oldMaterial.getStock());
                 SimpleHttpServer.sendResponse(exchange, 200, "{\"message\": \"Material updated successfully\"}");
             } else {
                 SimpleHttpServer.sendResponse(exchange, 500, "{\"error\": \"Failed to update material\"}");
@@ -78,8 +92,10 @@ public class MaterialHandler implements HttpHandler {
     private void handleDelete(HttpExchange exchange, String path) throws IOException {
         if (path.matches("/api/materials/\\d+")) {
             int id = Integer.parseInt(path.substring(path.lastIndexOf("/") + 1));
+            Material material = materialDao.getMaterialById(id);
             boolean success = materialDao.deleteMaterial(id);
             if (success) {
+                inventoryDao.updateInventoryStock(material.getName(), "农资", -material.getStock());
                 SimpleHttpServer.sendResponse(exchange, 200, "{\"message\": \"Material deleted successfully\"}");
             } else {
                 SimpleHttpServer.sendResponse(exchange, 500, "{\"error\": \"Failed to delete material\"}");

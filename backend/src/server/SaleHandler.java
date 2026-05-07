@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import dao.SaleDao;
 import dao.ProductDao;
+import dao.InventoryDao;
 import model.Sale;
 
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.util.List;
 public class SaleHandler implements HttpHandler {
     private SaleDao saleDao = new SaleDao();
     private ProductDao productDao = new ProductDao();
+    private InventoryDao inventoryDao = new InventoryDao();
     
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -56,11 +58,11 @@ public class SaleHandler implements HttpHandler {
     }
     
     private void updateProductStock(Sale sale) {
-        // 根据产品名称查找ID并更新库存
         List<model.Product> products = new ProductDao().getAllProducts();
         for (model.Product p : products) {
             if (p.getName().equals(sale.getProductName())) {
                 productDao.updateStock(p.getId(), sale.getQuantity());
+                inventoryDao.updateInventoryStock(p.getName(), "产品", -sale.getQuantity());
                 break;
             }
         }

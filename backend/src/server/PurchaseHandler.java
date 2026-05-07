@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import dao.PurchaseDao;
 import dao.MaterialDao;
+import dao.InventoryDao;
 import model.Purchase;
 
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.util.List;
 public class PurchaseHandler implements HttpHandler {
     private PurchaseDao purchaseDao = new PurchaseDao();
     private MaterialDao materialDao = new MaterialDao();
+    private InventoryDao inventoryDao = new InventoryDao();
     
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -56,11 +58,11 @@ public class PurchaseHandler implements HttpHandler {
     }
     
     private void updateMaterialStock(Purchase purchase) {
-        // 根据农资名称查找ID并更新库存
         List<model.Material> materials = new MaterialDao().getAllMaterials();
         for (model.Material m : materials) {
             if (m.getName().equals(purchase.getMaterialName())) {
                 materialDao.updateStock(m.getId(), purchase.getQuantity());
+                inventoryDao.updateInventoryStock(m.getName(), "农资", purchase.getQuantity());
                 break;
             }
         }

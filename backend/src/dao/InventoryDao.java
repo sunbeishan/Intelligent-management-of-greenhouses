@@ -26,7 +26,7 @@ public class InventoryDao {
                 i.setSpec(rs.getString("spec"));
                 i.setStock(rs.getInt("stock"));
                 i.setUnit(rs.getString("unit"));
-                i.setLastUpdate(rs.getString("last_update"));
+                i.setLastUpdate(rs.getTimestamp("last_update"));
                 inventoryList.add(i);
             }
         } catch (SQLException e) {
@@ -76,7 +76,7 @@ public class InventoryDao {
                 i.setSpec(rs.getString("spec"));
                 i.setStock(rs.getInt("stock"));
                 i.setUnit(rs.getString("unit"));
-                i.setLastUpdate(rs.getString("last_update"));
+                i.setLastUpdate(rs.getTimestamp("last_update"));
                 inventoryList.add(i);
             }
         } catch (SQLException e) {
@@ -85,10 +85,9 @@ public class InventoryDao {
         return inventoryList;
     }
     
-    public boolean addOrUpdateInventory(Inventory inventory) {
+    public boolean insertInventory(Inventory inventory) {
         String sql = "INSERT INTO inventory (name, type, category, spec, stock, unit, last_update) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?) " +
-                     "ON DUPLICATE KEY UPDATE stock=VALUES(stock), last_update=VALUES(last_update)";
+                     "VALUES (?, ?, ?, ?, ?, ?, NOW())";
         try (Connection conn = DatabaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
@@ -98,7 +97,40 @@ public class InventoryDao {
             pstmt.setString(4, inventory.getSpec());
             pstmt.setInt(5, inventory.getStock());
             pstmt.setString(6, inventory.getUnit());
-            pstmt.setString(7, inventory.getLastUpdate());
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    public boolean updateInventory(Inventory inventory) {
+        String sql = "UPDATE inventory SET name=?, type=?, category=?, spec=?, stock=?, unit=?, last_update=NOW() WHERE id=?";
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, inventory.getName());
+            pstmt.setString(2, inventory.getType());
+            pstmt.setString(3, inventory.getCategory());
+            pstmt.setString(4, inventory.getSpec());
+            pstmt.setInt(5, inventory.getStock());
+            pstmt.setString(6, inventory.getUnit());
+            pstmt.setInt(7, inventory.getId());
+            
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    public boolean deleteInventory(int id) {
+        String sql = "DELETE FROM inventory WHERE id=?";
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setInt(1, id);
             
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -116,10 +148,65 @@ public class InventoryDao {
             pstmt.setString(2, name);
             pstmt.setString(3, type);
             
-            return pstmt.executeUpdate() > 0;
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated == 0) {
+                String selectSql = "";
+                if ("农资".equals(type)) {
+                    selectSql = "SELECT type, spec, stock, unit FROM materials WHERE name = ?";
+                } else if ("产品".equals(type)) {
+                    selectSql = "SELECT type, spec, stock, unit FROM products WHERE name = ?";
+                }
+                
+                if (!selectSql.isEmpty()) {
+                    try (PreparedStatement selectPstmt = conn.prepareStatement(selectSql)) {
+                        selectPstmt.setString(1, name);
+                        try (ResultSet rs = selectPstmt.executeQuery()) {
+                            if (rs.next()) {
+                                String insertSql = "INSERT INTO inventory (name, type, category, spec, stock, unit, last_update) " +
+                                                   "VALUES (?, ?, ?, ?, ?, ?, NOW())";
+                                try (PreparedStatement insertPstmt = conn.prepareStatement(insertSql)) {
+                                    insertPstmt.setString(1, name);
+                                    insertPstmt.setString(2, type);
+                                    insertPstmt.setString(3, rs.getString("type"));
+                                    insertPstmt.setString(4, rs.getString("spec"));
+                                    insertPstmt.setInt(5, rs.getInt("stock") + quantity);
+                                    insertPstmt.setString(6, rs.getString("unit"));
+                                    insertPstmt.executeUpdate();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return true;
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return false;
+    }
+    
+    public void syncAllInventory() {
+        try (Connection conn = DatabaseConfig.getConnection()) {
+            String clearSql = "TRUNCATE TABLE inventory";
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate(clearSql);
+            }
+            
+            String insertMaterialsSql = "INSERT INTO inventory (name, type, category, spec, stock, unit, last_update) " +
+                                       "SELECT name, '农资', type, spec, stock, unit, NOW() FROM materials";
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate(insertMaterialsSql);
+            }
+            
+            String insertProductsSql = "INSERT INTO inventory (name, type, category, spec, stock, unit, last_update) " +
+                                       "SELECT name, '产品', type, spec, stock, unit, NOW() FROM products";
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate(insertProductsSql);
+            }
+            
+            System.out.println("Inventory synchronized successfully");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -7,11 +7,14 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import dao.InventoryDao;
 
 public class SimpleHttpServer {
     private static final int PORT = 8080;
 
     public static void main(String[] args) throws IOException {
+        new InventoryDao().syncAllInventory();
+
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
         server.createContext("/api/materials", new MaterialHandler());
