@@ -17,12 +17,12 @@
       <el-card shadow="hover" class="stat-card">
         <div class="stat-content">
           <div class="stat-info">
-            <h3>环境监测点</h3>
-            <p class="stat-value">32 个</p>
-            <p class="stat-desc">全部正常运行</p>
+            <h3>灌溉计划</h3>
+            <p class="stat-value">{{ irrigationPlanCount }} 个</p>
+            <p class="stat-desc">{{ activePlanCount }} 个正在运行</p>
           </div>
           <div class="stat-icon blue">
-            <el-icon><monitor /></el-icon>
+            <el-icon><hot-water /></el-icon>
           </div>
         </div>
       </el-card>
@@ -85,7 +85,8 @@ import {
   Location,
   Monitor,
   DataAnalysis,
-  User
+  User,
+  HotWater
 } from '@element-plus/icons-vue'
 
 const envChartPeriod = ref('30d')
@@ -94,6 +95,8 @@ const envChart = ref(null)
 const totalFarmlandArea = ref(0)
 const consultCount = ref(0)
 const solvedCount = ref(0)
+const irrigationPlanCount = ref(0)
+const activePlanCount = ref(0)
 
 const recentActivities = ref([])
 
@@ -118,6 +121,19 @@ const fetchConsultationStats = async () => {
     ElMessage.error('获取咨询统计失败')
     consultCount.value = 0
     solvedCount.value = 0
+  }
+}
+
+const fetchIrrigationStats = async () => {
+  try {
+    const response = await fetch('/api/irrigation/plans')
+    const data = await response.json()
+    irrigationPlanCount.value = data.length || 0
+    activePlanCount.value = data.filter(p => p.status === '启用').length || 0
+  } catch (error) {
+    ElMessage.error('获取灌溉计划统计失败')
+    irrigationPlanCount.value = 0
+    activePlanCount.value = 0
   }
 }
 
@@ -268,6 +284,7 @@ const getActivityTypeTag = (type) => {
 onMounted(() => {
   fetchTotalFarmlandArea()
   fetchConsultationStats()
+  fetchIrrigationStats()
   fetchRecentActivities()
   initEnvChart()
   window.addEventListener('resize', handleResize)

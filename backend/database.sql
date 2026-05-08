@@ -226,3 +226,76 @@ INSERT INTO activities (type, content, create_time) VALUES
 ('农田管理', '农田信息已更新', '2026-05-07 08:05:00'),
 ('环境监测', '大棚C光照正常', '2026-05-07 07:55:00'),
 ('系统管理', '用户登录成功', '2026-05-07 07:30:00');
+
+-- 灌溉设备表
+CREATE TABLE IF NOT EXISTS irrigation_devices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL COMMENT '设备名称',
+    farmland_id INT NOT NULL COMMENT '所属农田ID',
+    device_type VARCHAR(50) COMMENT '设备类型（喷灌/滴灌/漫灌）',
+    status VARCHAR(20) DEFAULT '正常' COMMENT '设备状态（正常/故障/维护中）',
+    water_flow DECIMAL(10,2) COMMENT '水流量(升/分钟)',
+    coverage_area DECIMAL(10,2) COMMENT '覆盖面积(亩)',
+    install_date DATE COMMENT '安装日期',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (farmland_id) REFERENCES farmland(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 灌溉计划表
+CREATE TABLE IF NOT EXISTS irrigation_plans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    farmland_id INT NOT NULL COMMENT '农田ID',
+    device_id INT COMMENT '设备ID',
+    plan_name VARCHAR(100) COMMENT '计划名称',
+    start_time TIME COMMENT '开始时间',
+    duration INT COMMENT '持续时间(分钟)',
+    water_amount DECIMAL(10,2) COMMENT '用水量(升)',
+    frequency VARCHAR(20) COMMENT '频率（每天/每周/自定义）',
+    week_days VARCHAR(50) COMMENT '执行日期（1,2,3...7代表周一到周日）',
+    status VARCHAR(20) DEFAULT '启用' COMMENT '状态（启用/禁用）',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (farmland_id) REFERENCES farmland(id),
+    FOREIGN KEY (device_id) REFERENCES irrigation_devices(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 灌溉记录表
+CREATE TABLE IF NOT EXISTS irrigation_records (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    farmland_id INT NOT NULL COMMENT '农田ID',
+    device_id INT COMMENT '设备ID',
+    plan_id INT COMMENT '计划ID（手动灌溉为空）',
+    start_time DATETIME COMMENT '开始时间',
+    end_time DATETIME COMMENT '结束时间',
+    duration INT COMMENT '持续时间(分钟)',
+    water_amount DECIMAL(10,2) COMMENT '用水量(升)',
+    type VARCHAR(20) COMMENT '类型（自动/手动）',
+    status VARCHAR(20) DEFAULT '已完成' COMMENT '状态（进行中/已完成/已取消）',
+    operator VARCHAR(50) COMMENT '操作人',
+    remark TEXT COMMENT '备注',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (farmland_id) REFERENCES farmland(id),
+    FOREIGN KEY (device_id) REFERENCES irrigation_devices(id),
+    FOREIGN KEY (plan_id) REFERENCES irrigation_plans(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 插入测试数据 - 灌溉设备
+INSERT INTO irrigation_devices (name, farmland_id, device_type, status, water_flow, coverage_area, install_date) VALUES
+('大棚A喷灌系统', 1, '喷灌', '正常', 50.0, 50, '2026-01-15'),
+('大棚B滴灌系统', 2, '滴灌', '正常', 30.0, 45, '2026-01-20'),
+('大棚C漫灌系统', 3, '漫灌', '正常', 80.0, 60, '2026-02-01'),
+('露天农田1喷灌', 4, '喷灌', '正常', 100.0, 120, '2026-02-10');
+
+-- 插入测试数据 - 灌溉计划
+INSERT INTO irrigation_plans (farmland_id, device_id, plan_name, start_time, duration, water_amount, frequency, week_days, status) VALUES
+(1, 1, '大棚A日常灌溉', '08:00:00', 30, 1500.0, '每天', '1,2,3,4,5,6,7', '启用'),
+(2, 2, '大棚B定期灌溉', '09:00:00', 25, 750.0, '每周', '1,3,5', '启用'),
+(4, 4, '露天农田灌溉计划', '07:00:00', 45, 4500.0, '每天', '1,2,3,4,5,6,7', '启用');
+
+-- 插入测试数据 - 灌溉记录
+INSERT INTO irrigation_records (farmland_id, device_id, plan_id, start_time, end_time, duration, water_amount, type, status, operator, remark) VALUES
+(1, 1, 1, '2026-05-07 08:00:00', '2026-05-07 08:30:00', 30, 1500.0, '自动', '已完成', '系统', '按计划执行'),
+(2, 2, 2, '2026-05-07 09:00:00', '2026-05-07 09:25:00', 25, 750.0, '自动', '已完成', '系统', '按计划执行'),
+(4, 4, 3, '2026-05-07 07:00:00', '2026-05-07 07:45:00', 45, 4500.0, '自动', '已完成', '系统', '按计划执行'),
+(1, 1, NULL, '2026-05-06 16:30:00', '2026-05-06 17:00:00', 30, 1500.0, '手动', '已完成', '管理员', '补充灌溉');

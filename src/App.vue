@@ -42,6 +42,10 @@
           <el-icon><location /></el-icon>
           <span>农田信息管理</span>
         </router-link>
+        <router-link to="/irrigation" class="menu-item">
+          <el-icon><hot-water /></el-icon>
+          <span>灌溉管理</span>
+        </router-link>
         <router-link to="/expert" class="menu-item">
           <el-icon><chat-dot-round /></el-icon>
           <span>专家咨询</span>
@@ -128,7 +132,8 @@ import {
   TrendCharts,
   Box,
   CollectionTag,
-  ChatDotRound
+  ChatDotRound,
+  HotWater
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'

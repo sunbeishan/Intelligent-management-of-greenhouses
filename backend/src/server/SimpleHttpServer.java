@@ -15,7 +15,7 @@ public class SimpleHttpServer {
     public static void main(String[] args) throws IOException {
         new InventoryDao().syncAllInventory();
 
-
+        IrrigationScheduler.start();
         
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
 
@@ -40,6 +40,9 @@ public class SimpleHttpServer {
         server.createContext("/api/experts", new ExpertHandler());
         server.createContext("/api/expert/login", new ExpertLoginHandler());
         server.createContext("/api/activities", new ActivityHandler());
+        server.createContext("/api/irrigation/devices", new IrrigationDeviceHandler());
+        server.createContext("/api/irrigation/plans", new IrrigationPlanHandler());
+        server.createContext("/api/irrigation/records", new IrrigationRecordHandler());
 
         server.setExecutor(null);
         server.start();

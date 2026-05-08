@@ -57,6 +57,11 @@ const routes = [
     meta: { title: '农田信息管理' }
   },
   {
+    path: '/irrigation',
+    component: () => import('../views/Irrigation.vue'),
+    meta: { title: '灌溉管理' }
+  },
+  {
     path: '/expert',
     component: () => import('../views/Expert.vue'),
     meta: { title: '专家咨询' }
