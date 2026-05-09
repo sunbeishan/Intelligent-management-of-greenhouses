@@ -2,7 +2,7 @@
   <div class="irrigation">
     <div class="tabs-container">
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-        <el-tab-pane label="设备管理" name="devices">
+        <el-tab-pane v-if="isAdmin" label="设备管理" name="devices">
           <IrrigationDevices v-if="activeTab === 'devices'" :key="devicesKey" @refresh="refreshDevices" />
         </el-tab-pane>
         <el-tab-pane label="灌溉计划" name="plans">
@@ -17,12 +17,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useAppStore } from '../stores/index.js'
 import IrrigationDevices from './IrrigationDevices.vue'
 import IrrigationPlans from './IrrigationPlans.vue'
 import IrrigationRecords from './IrrigationRecords.vue'
 
-const activeTab = ref('devices')
+const store = useAppStore()
+const isAdmin = computed(() => store.user.role === '管理员')
+const activeTab = ref('plans')
+
+onMounted(() => {
+  activeTab.value = isAdmin.value ? 'devices' : 'plans'
+})
 const devicesKey = ref(0)
 const plansKey = ref(0)
 const recordsKey = ref(0)

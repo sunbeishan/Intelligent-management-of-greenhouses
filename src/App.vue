@@ -26,10 +26,15 @@
         </el-button>
       </div>
       <nav class="sidebar-menu">
-        <router-link to="/dashboard" class="menu-item">
-          <el-icon><data-analysis /></el-icon>
-          <span>统计分析</span>
-        </router-link>
+        <!-- 管理员可见 -->
+        <template v-if="isAdmin">
+          <router-link to="/dashboard" class="menu-item">
+            <el-icon><data-analysis /></el-icon>
+            <span>统计分析</span>
+          </router-link>
+        </template>
+        
+        <!-- 所有用户可见 -->
         <router-link to="/environment" class="menu-item">
           <el-icon><monitor /></el-icon>
           <span>环境监测</span>
@@ -38,10 +43,15 @@
           <el-icon><collection-tag /></el-icon>
           <span>作物识别</span>
         </router-link>
-        <router-link to="/farm" class="menu-item">
-          <el-icon><location /></el-icon>
-          <span>农田信息管理</span>
-        </router-link>
+        
+        <!-- 管理员可见 -->
+        <template v-if="isAdmin">
+          <router-link to="/farm" class="menu-item">
+            <el-icon><location /></el-icon>
+            <span>农田信息管理</span>
+          </router-link>
+        </template>
+        
         <router-link to="/irrigation" class="menu-item">
           <el-icon><hot-water /></el-icon>
           <span>灌溉管理</span>
@@ -50,32 +60,35 @@
           <el-icon><chat-dot-round /></el-icon>
           <span>专家咨询</span>
         </router-link>
-        <!-- 农资管理下拉菜单 -->
-        <div class="dropdown-item">
-          <div class="dropdown-header" @click="toggleDropdown('materials')">
-            <el-icon><goods /></el-icon>
-            <span>农资管理</span>
-            <el-icon class="dropdown-arrow" :class="{ 'rotated': dropdowns.materials }"><arrow-down /></el-icon>
+        
+        <!-- 管理员可见 -->
+        <template v-if="isAdmin">
+          <div class="dropdown-item">
+            <div class="dropdown-header" @click="toggleDropdown('materials')">
+              <el-icon><goods /></el-icon>
+              <span>农资管理</span>
+              <el-icon class="dropdown-arrow" :class="{ 'rotated': dropdowns.materials }"><arrow-down /></el-icon>
+            </div>
+            <div class="dropdown-menu" v-show="dropdowns.materials">
+              <router-link to="/materials/purchase" class="dropdown-menu-item">
+                <el-icon><shopping-cart /></el-icon>
+                <span>农资采购</span>
+              </router-link>
+              <router-link to="/materials/products" class="dropdown-menu-item">
+                <el-icon><box /></el-icon>
+                <span>产品出售</span>
+              </router-link>
+              <router-link to="/materials/inventory" class="dropdown-menu-item">
+                <el-icon><trend-charts /></el-icon>
+                <span>库存</span>
+              </router-link>
+            </div>
           </div>
-          <div class="dropdown-menu" v-show="dropdowns.materials">
-            <router-link to="/materials/purchase" class="dropdown-menu-item">
-              <el-icon><shopping-cart /></el-icon>
-              <span>农资采购</span>
-            </router-link>
-            <router-link to="/materials/products" class="dropdown-menu-item">
-              <el-icon><box /></el-icon>
-              <span>产品出售</span>
-            </router-link>
-            <router-link to="/materials/inventory" class="dropdown-menu-item">
-              <el-icon><trend-charts /></el-icon>
-              <span>库存</span>
-            </router-link>
-          </div>
-        </div>
-        <router-link to="/system" class="menu-item">
-          <el-icon><setting /></el-icon>
-          <span>系统管理</span>
-        </router-link>
+          <router-link to="/system" class="menu-item">
+            <el-icon><setting /></el-icon>
+            <span>系统管理</span>
+          </router-link>
+        </template>
       </nav>
     </aside>
     
@@ -142,6 +155,7 @@ const store = useAppStore()
 const router = useRouter()
 const sidebarOpen = computed(() => store.sidebarOpen)
 const user = computed(() => store.user)
+const isAdmin = computed(() => store.user.role === '管理员')
 const userAvatar = computed(() => 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=user%20avatar%20portrait&image_size=square')
 
 const dropdowns = ref({

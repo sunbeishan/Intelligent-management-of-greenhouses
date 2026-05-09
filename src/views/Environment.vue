@@ -5,13 +5,10 @@
       <div class="filter-content">
         <el-form :inline="true" :model="filterForm" class="filter-form">
           <el-form-item label="监测点">
-            <el-select v-model="filterForm.monitorPoint" placeholder="选择监测点" @change="onMonitorPointChange">
-              <el-option label="大棚A" value="greenhouseA"></el-option>
-              <el-option label="大棚B" value="greenhouseB"></el-option>
-              <el-option label="大棚C" value="greenhouseC"></el-option>
-              <el-option label="露天农田" value="openField"></el-option>
-            </el-select>
-          </el-form-item>
+          <el-select v-model="filterForm.monitorPoint" placeholder="选择监测点" @change="onMonitorPointChange">
+            <el-option v-for="option in availableMonitorOptions" :key="option.value" :label="option.label" :value="option.value"></el-option>
+          </el-select>
+        </el-form-item>
           <el-form-item label="选择日期">
             <el-date-picker
               v-model="filterForm.selectedDate"
@@ -110,9 +107,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import * as echarts from 'echarts'
 import { Monitor } from '@element-plus/icons-vue'
+import { useAppStore } from '../stores/index.js'
+
+const store = useAppStore()
+const isAdmin = computed(() => store.user.role === '管理员')
 
 const filterForm = ref({
   monitorPoint: '',
@@ -130,36 +131,71 @@ const environmentData = ref({
   co2Status: '正常'
 })
 
-const monitorPoints = ref([
+const userFarmlands = ref([])
+
+const allMonitorPoints = [
   {
     id: 1,
     name: '大棚A',
+    value: 'greenhouseA',
     location: '东区1号',
     status: '正常',
-    lastUpdate: '2026-04-26 14:30'
+    lastUpdate: '2026-04-26 14:30',
+    farmland: '大棚A'
   },
   {
     id: 2,
     name: '大棚B',
+    value: 'greenhouseB',
     location: '东区2号',
     status: '正常',
-    lastUpdate: '2026-04-26 14:28'
+    lastUpdate: '2026-04-26 14:28',
+    farmland: '大棚B'
   },
   {
     id: 3,
     name: '大棚C',
+    value: 'greenhouseC',
     location: '西区1号',
     status: '正常',
-    lastUpdate: '2026-04-26 14:25'
+    lastUpdate: '2026-04-26 14:25',
+    farmland: '大棚C'
   },
   {
     id: 4,
     name: '露天农田',
+    value: 'openField',
     location: '南区',
     status: '正常',
-    lastUpdate: '2026-04-26 14:20'
+    lastUpdate: '2026-04-26 14:20',
+    farmland: '露天农田'
   }
-])
+]
+
+const monitorPoints = computed(() => {
+  if (isAdmin.value) {
+    return allMonitorPoints
+  }
+  return allMonitorPoints.filter(mp => userFarmlands.value.includes(mp.farmland))
+})
+
+const availableMonitorOptions = computed(() => {
+  if (isAdmin.value) {
+    return [
+      { label: '大棚A', value: 'greenhouseA' },
+      { label: '大棚B', value: 'greenhouseB' },
+      { label: '大棚C', value: 'greenhouseC' },
+      { label: '露天农田', value: 'openField' }
+    ]
+  }
+  const farmlandToOption = {
+    '大棚A': { label: '大棚A', value: 'greenhouseA' },
+    '大棚B': { label: '大棚B', value: 'greenhouseB' },
+    '大棚C': { label: '大棚C', value: 'greenhouseC' },
+    '露天农田': { label: '露天农田', value: 'openField' }
+  }
+  return userFarmlands.value.map(f => farmlandToOption[f]).filter(Boolean)
+})
 
 const chartRef = ref(null)
 const chart = ref(null)
@@ -477,7 +513,33 @@ const viewDetails = (row) => {
   console.log('查看监测点详情:', row)
 }
 
-onMounted(() => {
+const fetchUserFarmlands = async () => {
+  if (isAdmin.value) {
+    userFarmlands.value = ['大棚A', '大棚B', '大棚C', '露天农田']
+    return
+  }
+  const username = store.user.username || store.user.name
+  if (!username) {
+    console.error('用户名不存在')
+    return
+  }
+  try {
+    const response = await fetch(`/api/user/info?username=${encodeURIComponent(username)}`)
+    const data = await response.json()
+    if (data.farmlands) {
+      userFarmlands.value = data.farmlands
+    }
+    if (userFarmlands.value.length > 0) {
+      filterForm.value.monitorPoint = availableMonitorOptions.value[0]?.value || ''
+    }
+  } catch (error) {
+    console.error('获取用户农田失败:', error)
+    userFarmlands.value = []
+  }
+}
+
+onMounted(async () => {
+  await fetchUserFarmlands()
   environmentData.value = getEnvironmentDataByDate()
   initChart()
   window.addEventListener('resize', handleResize)

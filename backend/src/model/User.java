@@ -10,6 +10,7 @@ public class User {
     private String role;
     private String status;
     private String avatar;
+    private String farmlands;
     private Timestamp createTime;
 
     public User() {}
@@ -36,6 +37,8 @@ public class User {
     public void setStatus(String status) { this.status = status; }
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }
+    public String getFarmlands() { return farmlands; }
+    public void setFarmlands(String farmlands) { this.farmlands = farmlands; }
     public Timestamp getCreateTime() { return createTime; }
     public void setCreateTime(Timestamp createTime) { this.createTime = createTime; }
 }

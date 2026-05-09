@@ -193,6 +193,99 @@ public class IrrigationRecordDAO {
         return 0;
     }
 
+    public List<IrrigationRecord> getRecordsByFarmlandIds(int[] farmlandIds, String startDate, String endDate) {
+        List<IrrigationRecord> records = new ArrayList<>();
+        if (farmlandIds == null || farmlandIds.length == 0) {
+            return records;
+        }
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT r.*, f.name as farmland_name, d.name as device_name, p.plan_name ");
+        sql.append("FROM irrigation_records r ");
+        sql.append("LEFT JOIN farmland f ON r.farmland_id = f.id ");
+        sql.append("LEFT JOIN irrigation_devices d ON r.device_id = d.id ");
+        sql.append("LEFT JOIN irrigation_plans p ON r.plan_id = p.id ");
+        sql.append("WHERE r.farmland_id IN (");
+
+        for (int i = 0; i < farmlandIds.length; i++) {
+            if (i > 0) sql.append(",");
+            sql.append("?");
+        }
+        sql.append(")");
+
+        if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
+            sql.append(" AND DATE(r.start_time) BETWEEN ? AND ?");
+        }
+
+        sql.append(" ORDER BY r.start_time DESC");
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+
+            int paramIndex = 1;
+            for (int id : farmlandIds) {
+                pstmt.setInt(paramIndex++, id);
+            }
+
+            if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
+                pstmt.setString(paramIndex++, startDate);
+                pstmt.setString(paramIndex++, endDate);
+            }
+
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                records.add(extractRecord(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return records;
+    }
+
+    public double getTotalWaterUsageByFarmlandIds(int[] farmlandIds, String startDate, String endDate) {
+        if (farmlandIds == null || farmlandIds.length == 0) {
+            return 0;
+        }
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT COALESCE(SUM(water_amount), 0) as total FROM irrigation_records ");
+        sql.append("WHERE farmland_id IN (");
+
+        for (int i = 0; i < farmlandIds.length; i++) {
+            if (i > 0) sql.append(",");
+            sql.append("?");
+        }
+        sql.append(")");
+
+        if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
+            sql.append(" AND DATE(start_time) BETWEEN ? AND ?");
+        }
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+
+            int paramIndex = 1;
+            for (int id : farmlandIds) {
+                pstmt.setInt(paramIndex++, id);
+            }
+
+            if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
+                pstmt.setString(paramIndex++, startDate);
+                pstmt.setString(paramIndex++, endDate);
+            }
+
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return rs.getDouble("total");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
     private IrrigationRecord extractRecord(ResultSet rs) throws SQLException {
         IrrigationRecord r = new IrrigationRecord();
         r.setId(rs.getInt("id"));

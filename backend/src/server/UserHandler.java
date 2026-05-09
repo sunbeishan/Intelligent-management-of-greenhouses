@@ -3,6 +3,7 @@ package server;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import dao.UserDAO;
+import dao.UserFarmlandDAO;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,6 +12,7 @@ import model.User;
 
 public class UserHandler implements HttpHandler {
     private UserDAO userDAO = new UserDAO();
+    private UserFarmlandDAO userFarmlandDAO = new UserFarmlandDAO();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -95,7 +97,8 @@ public class UserHandler implements HttpHandler {
         sb.append("\"role\":\"").append(escapeJson(user.getRole())).append("\",");
         sb.append("\"status\":\"").append(escapeJson(user.getStatus())).append("\",");
         sb.append("\"avatar\":\"").append(escapeJson(user.getAvatar())).append("\",");
-        sb.append("\"createTime\":\"").append(user.getCreateTime()).append("\"");
+        sb.append("\"createTime\":\"").append(user.getCreateTime()).append("\",");
+        sb.append("\"farmlands\":").append(userFarmlandDAO.getUserFarmlandsJson(user.getId()));
         sb.append("}");
         return sb.toString();
     }
@@ -119,15 +122,57 @@ public class UserHandler implements HttpHandler {
         user.setRole(extractString(json, "role"));
         user.setStatus(extractString(json, "status"));
         user.setAvatar(extractString(json, "avatar"));
+        user.setFarmlands(extractString(json, "farmlands"));
         return user;
     }
 
     private String extractString(String json, String key) {
         int start = json.indexOf("\"" + key + "\":");
         if (start == -1) return "";
-        start = json.indexOf("\"", start + key.length() + 2) + 1;
+        
+        int valueStart = start + key.length() + 3;
+        while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) {
+            valueStart++;
+        }
+        
+        if (valueStart < json.length() && json.charAt(valueStart) == '[') {
+            int arrayEnd = findMatchingBracket(json, valueStart);
+            if (arrayEnd != -1) {
+                String arrayStr = json.substring(valueStart, arrayEnd + 1);
+                return parseArrayToString(arrayStr);
+            }
+            return "";
+        }
+        
+        start = json.indexOf("\"", valueStart) + 1;
         int end = json.indexOf("\"", start);
-        return json.substring(start, end);
+        return end > start ? json.substring(start, end) : "";
+    }
+    
+    private int findMatchingBracket(String json, int start) {
+        int depth = 1;
+        for (int i = start + 1; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '[') depth++;
+            else if (c == ']') depth--;
+            if (depth == 0) return i;
+        }
+        return -1;
+    }
+    
+    private String parseArrayToString(String arrayStr) {
+        String content = arrayStr.substring(1, arrayStr.length() - 1);
+        String[] items = content.split(",");
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < items.length; i++) {
+            String item = items[i].trim();
+            if (item.startsWith("\"") && item.endsWith("\"")) {
+                item = item.substring(1, item.length() - 1);
+            }
+            if (i > 0) result.append(",");
+            result.append(item);
+        }
+        return result.toString();
     }
 
     private String escapeJson(String s) {

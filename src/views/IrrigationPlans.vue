@@ -109,12 +109,16 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '../stores/index.js'
 
 const emit = defineEmits(['refresh'])
+const store = useAppStore()
 
 const planList = ref([])
 const farmlands = ref([])
 const devices = ref([])
+const userFarmlandIds = ref([])
+const isAdmin = computed(() => store.user.role === '管理员')
 const dialogVisible = ref(false)
 const deleteConfirmVisible = ref(false)
 const isEdit = ref(false)
@@ -164,9 +168,34 @@ const fetchDevices = async () => {
   }
 }
 
+const fetchUserFarmlandIds = async () => {
+  if (isAdmin.value) {
+    userFarmlandIds.value = []
+    return
+  }
+  const username = store.user.username || store.user.name
+  if (!username) return
+  try {
+    const response = await fetch(`/api/user/info?username=${encodeURIComponent(username)}`)
+    const data = await response.json()
+    if (data.farmlands && farmlands.value.length > 0) {
+      userFarmlandIds.value = farmlands.value
+        .filter(f => data.farmlands.includes(f.name))
+        .map(f => f.id)
+    }
+  } catch (error) {
+    console.error('获取用户农田失败:', error)
+    userFarmlandIds.value = []
+  }
+}
+
 const fetchPlans = async () => {
   try {
-    const response = await fetch('/api/irrigation/plans')
+    let url = '/api/irrigation/plans'
+    if (!isAdmin.value && userFarmlandIds.value.length > 0) {
+      url += '?farmlandIds=' + userFarmlandIds.value.join(',')
+    }
+    const response = await fetch(url)
     planList.value = await response.json()
   } catch (error) {
     console.error('获取计划列表失败:', error)
@@ -320,9 +349,10 @@ const doDelete = async () => {
   }
 }
 
-onMounted(() => {
-  fetchFarmlands()
-  fetchDevices()
+onMounted(async () => {
+  await fetchFarmlands()
+  await fetchDevices()
+  await fetchUserFarmlandIds()
   fetchPlans()
 })
 </script>

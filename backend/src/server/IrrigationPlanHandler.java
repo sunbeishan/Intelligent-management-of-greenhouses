@@ -36,7 +36,36 @@ public class IrrigationPlanHandler implements HttpHandler {
     }
 
     private void handleGet(HttpExchange exchange) throws IOException {
-        List<IrrigationPlan> plans = dao.getAllPlans();
+        String query = exchange.getRequestURI().getQuery();
+        String farmlandIdsParam = null;
+        
+        if (query != null) {
+            String[] pairs = query.split("&");
+            for (String pair : pairs) {
+                String[] keyValue = pair.split("=");
+                if (keyValue.length == 2 && "farmlandIds".equals(keyValue[0])) {
+                    farmlandIdsParam = keyValue[1];
+                    break;
+                }
+            }
+        }
+
+        List<IrrigationPlan> plans;
+        if (farmlandIdsParam != null && !farmlandIdsParam.isEmpty()) {
+            String[] idStrings = farmlandIdsParam.split(",");
+            int[] farmlandIds = new int[idStrings.length];
+            for (int i = 0; i < idStrings.length; i++) {
+                try {
+                    farmlandIds[i] = Integer.parseInt(idStrings[i].trim());
+                } catch (NumberFormatException e) {
+                    farmlandIds[i] = -1;
+                }
+            }
+            plans = dao.getPlansByFarmlandIds(farmlandIds);
+        } else {
+            plans = dao.getAllPlans();
+        }
+        
         String json = toJsonList(plans);
         SimpleHttpServer.sendResponse(exchange, 200, json);
     }

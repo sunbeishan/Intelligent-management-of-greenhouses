@@ -88,7 +88,8 @@ const handleLogin = async () => {
       })
       
       ElMessage.success('登录成功')
-      router.push('/dashboard')
+      const defaultRoute = data.user.role === '管理员' ? '/dashboard' : '/environment'
+      router.push(defaultRoute)
     } else {
       ElMessage.error(data.message)
     }

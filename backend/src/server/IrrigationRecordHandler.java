@@ -43,11 +43,24 @@ public class IrrigationRecordHandler implements HttpHandler {
     private void handleGet(HttpExchange exchange) throws IOException {
         String query = exchange.getRequestURI().getQuery();
         String farmlandIdStr = extractQueryParam(query, "farmlandId");
+        String farmlandIdsStr = extractQueryParam(query, "farmlandIds");
         String startDate = extractQueryParam(query, "startDate");
         String endDate = extractQueryParam(query, "endDate");
 
         List<IrrigationRecord> records;
-        if ((startDate != null && !startDate.isEmpty()) && (endDate != null && !endDate.isEmpty())) {
+        
+        if (farmlandIdsStr != null && !farmlandIdsStr.isEmpty()) {
+            String[] idStrings = farmlandIdsStr.split(",");
+            int[] farmlandIds = new int[idStrings.length];
+            for (int i = 0; i < idStrings.length; i++) {
+                try {
+                    farmlandIds[i] = Integer.parseInt(idStrings[i].trim());
+                } catch (NumberFormatException e) {
+                    farmlandIds[i] = -1;
+                }
+            }
+            records = dao.getRecordsByFarmlandIds(farmlandIds, startDate, endDate);
+        } else if ((startDate != null && !startDate.isEmpty()) && (endDate != null && !endDate.isEmpty())) {
             records = dao.getRecordsByDateRange(startDate, endDate);
         } else if (farmlandIdStr != null && !farmlandIdStr.isEmpty()) {
             try {
@@ -81,6 +94,7 @@ public class IrrigationRecordHandler implements HttpHandler {
         String query = exchange.getRequestURI().getQuery();
         String startDate = extractQueryParam(query, "startDate");
         String endDate = extractQueryParam(query, "endDate");
+        String farmlandIdsStr = extractQueryParam(query, "farmlandIds");
 
         if (startDate == null || startDate.isEmpty()) {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
@@ -91,7 +105,22 @@ public class IrrigationRecordHandler implements HttpHandler {
             endDate = sdf.format(new Date());
         }
 
-        double totalWater = dao.getTotalWaterUsage(startDate, endDate);
+        double totalWater;
+        if (farmlandIdsStr != null && !farmlandIdsStr.isEmpty()) {
+            String[] idStrings = farmlandIdsStr.split(",");
+            int[] farmlandIds = new int[idStrings.length];
+            for (int i = 0; i < idStrings.length; i++) {
+                try {
+                    farmlandIds[i] = Integer.parseInt(idStrings[i].trim());
+                } catch (NumberFormatException e) {
+                    farmlandIds[i] = -1;
+                }
+            }
+            totalWater = dao.getTotalWaterUsageByFarmlandIds(farmlandIds, startDate, endDate);
+        } else {
+            totalWater = dao.getTotalWaterUsage(startDate, endDate);
+        }
+        
         String json = String.format("{\"totalWater\": %.2f, \"startDate\": \"%s\", \"endDate\": \"%s\"}", totalWater, startDate, endDate);
         SimpleHttpServer.sendResponse(exchange, 200, json);
     }

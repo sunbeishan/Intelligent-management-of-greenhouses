@@ -7,6 +7,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class UserDAO {
+    
+    static {
+        ensureFarmlandsColumnExists();
+    }
+    
+    private static void ensureFarmlandsColumnExists() {
+        try (Connection conn = DatabaseConfig.getConnection();
+             Statement stmt = conn.createStatement()) {
+            
+            DatabaseMetaData dbMeta = conn.getMetaData();
+            ResultSet columns = dbMeta.getColumns(null, null, "users", "farmlands");
+            
+            if (!columns.next()) {
+                stmt.execute("ALTER TABLE users ADD COLUMN farmlands TEXT");
+            }
+            columns.close();
+        } catch (SQLException e) {
+            // 忽略错误，字段可能已存在或其他原因
+        }
+    }
+    
     public List<User> getAllUsers() {
         List<User> users = new ArrayList<>();
         String sql = "SELECT * FROM users";
@@ -27,6 +48,11 @@ public class UserDAO {
                     user.setAvatar(rs.getString("avatar"));
                 } catch (SQLException e) {
                     user.setAvatar("");
+                }
+                try {
+                    user.setFarmlands(rs.getString("farmlands"));
+                } catch (SQLException e) {
+                    user.setFarmlands("");
                 }
                 user.setCreateTime(rs.getTimestamp("create_time"));
                 users.add(user);
@@ -57,6 +83,11 @@ public class UserDAO {
                         user.setAvatar(rs.getString("avatar"));
                     } catch (SQLException e) {
                         user.setAvatar("");
+                    }
+                    try {
+                        user.setFarmlands(rs.getString("farmlands"));
+                    } catch (SQLException e) {
+                        user.setFarmlands("");
                     }
                     user.setCreateTime(rs.getTimestamp("create_time"));
                     return user;
@@ -89,6 +120,11 @@ public class UserDAO {
                     } catch (SQLException e) {
                         user.setAvatar("");
                     }
+                    try {
+                        user.setFarmlands(rs.getString("farmlands"));
+                    } catch (SQLException e) {
+                        user.setFarmlands("");
+                    }
                     user.setCreateTime(rs.getTimestamp("create_time"));
                     return user;
                 }
@@ -100,7 +136,7 @@ public class UserDAO {
     }
 
     public boolean addUser(User user) {
-        String sql = "INSERT INTO users (username, password, name, role, status, avatar) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, password, name, role, status, avatar, farmlands) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConfig.getConnection()) {
             try {
@@ -114,13 +150,17 @@ public class UserDAO {
             }
 
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, user.getUsername());
-                pstmt.setString(2, user.getPassword());
-                pstmt.setString(3, user.getName());
-                pstmt.setString(4, user.getRole());
-                pstmt.setString(5, user.getStatus());
+                int paramIndex = 1;
+                pstmt.setString(paramIndex++, user.getUsername());
+                pstmt.setString(paramIndex++, user.getPassword());
+                pstmt.setString(paramIndex++, user.getName());
+                pstmt.setString(paramIndex++, user.getRole());
+                pstmt.setString(paramIndex++, user.getStatus());
                 if (sql.contains("avatar")) {
-                    pstmt.setString(6, user.getAvatar() != null ? user.getAvatar() : "");
+                    pstmt.setString(paramIndex++, user.getAvatar() != null ? user.getAvatar() : "");
+                }
+                if (sql.contains("farmlands")) {
+                    pstmt.setString(paramIndex++, user.getFarmlands() != null ? user.getFarmlands() : "");
                 }
 
                 return pstmt.executeUpdate() > 0;
@@ -132,7 +172,7 @@ public class UserDAO {
     }
 
     public boolean updateUser(User user) {
-        String sql = "UPDATE users SET username=?, password=?, name=?, role=?, status=?, avatar=? WHERE id=?";
+        String sql = "UPDATE users SET username=?, password=?, name=?, role=?, status=?, avatar=?, farmlands=? WHERE id=?";
 
         try (Connection conn = DatabaseConfig.getConnection()) {
             try {
@@ -146,17 +186,19 @@ public class UserDAO {
             }
 
             try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, user.getUsername());
-                pstmt.setString(2, user.getPassword());
-                pstmt.setString(3, user.getName());
-                pstmt.setString(4, user.getRole());
-                pstmt.setString(5, user.getStatus());
+                int paramIndex = 1;
+                pstmt.setString(paramIndex++, user.getUsername());
+                pstmt.setString(paramIndex++, user.getPassword());
+                pstmt.setString(paramIndex++, user.getName());
+                pstmt.setString(paramIndex++, user.getRole());
+                pstmt.setString(paramIndex++, user.getStatus());
                 if (sql.contains("avatar")) {
-                    pstmt.setString(6, user.getAvatar() != null ? user.getAvatar() : "");
-                    pstmt.setInt(7, user.getId());
-                } else {
-                    pstmt.setInt(6, user.getId());
+                    pstmt.setString(paramIndex++, user.getAvatar() != null ? user.getAvatar() : "");
                 }
+                if (sql.contains("farmlands")) {
+                    pstmt.setString(paramIndex++, user.getFarmlands() != null ? user.getFarmlands() : "");
+                }
+                pstmt.setInt(paramIndex++, user.getId());
 
                 return pstmt.executeUpdate() > 0;
             }
@@ -167,13 +209,25 @@ public class UserDAO {
     }
 
     public boolean deleteUser(int id) {
-        String sql = "DELETE FROM users WHERE id=?";
+        String deleteUserFarmlandSql = "DELETE FROM user_farmland WHERE user_id=?";
+        String deleteUserSql = "DELETE FROM users WHERE id=?";
 
-        try (Connection conn = DatabaseConfig.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, id);
-            return pstmt.executeUpdate() > 0;
+        try (Connection conn = DatabaseConfig.getConnection()) {
+            conn.setAutoCommit(false);
+            
+            try (PreparedStatement pstmt = conn.prepareStatement(deleteUserFarmlandSql)) {
+                pstmt.setInt(1, id);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                // user_farmland表可能已删除，忽略此错误
+            }
+            
+            try (PreparedStatement pstmt = conn.prepareStatement(deleteUserSql)) {
+                pstmt.setInt(1, id);
+                int affected = pstmt.executeUpdate();
+                conn.commit();
+                return affected > 0;
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             return false;

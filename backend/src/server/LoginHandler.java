@@ -53,6 +53,11 @@ public class LoginHandler implements HttpHandler {
             return;
         }
 
+        if ("待审批".equals(user.getStatus())) {
+            SimpleHttpServer.sendResponse(exchange, 403, "{\"success\": false, \"message\": \"账号待审批，请联系管理员\"}");
+            return;
+        }
+
         if (!password.equals(user.getPassword())) {
             SimpleHttpServer.sendResponse(exchange, 401, "{\"success\": false, \"message\": \"密码错误\"}");
             return;

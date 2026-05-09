@@ -26,6 +26,7 @@ public class ActivityDao {
                 Timestamp createTime = rs.getTimestamp("create_time");
 
                 java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+                sdf.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
                 String timeStr = sdf.format(createTime);
 
                 json.append(String.format("{\"time\":\"%s\",\"type\":\"%s\",\"content\":\"%s\"}",

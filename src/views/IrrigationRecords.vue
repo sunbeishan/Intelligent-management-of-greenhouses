@@ -113,14 +113,18 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { Plus, Download } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '../stores/index.js'
 
 const emit = defineEmits(['refresh'])
+const store = useAppStore()
 
 const recordList = ref([])
 const farmlands = ref([])
 const devices = ref([])
 const dialogVisible = ref(false)
 const formRef = ref(null)
+const userFarmlandIds = ref([])
+const isAdmin = computed(() => store.user.role === '管理员')
 
 const todayWaterUsage = ref(0)
 const weekWaterUsage = ref(0)
@@ -187,10 +191,36 @@ const fetchDevices = async () => {
   }
 }
 
+const fetchUserFarmlandIds = async () => {
+  if (isAdmin.value) {
+    userFarmlandIds.value = []
+    return
+  }
+  const username = store.user.username || store.user.name
+  if (!username) return
+  try {
+    const response = await fetch(`/api/user/info?username=${encodeURIComponent(username)}`)
+    const data = await response.json()
+    if (data.farmlands && farmlands.value.length > 0) {
+      userFarmlandIds.value = farmlands.value
+        .filter(f => data.farmlands.includes(f.name))
+        .map(f => f.id)
+    }
+  } catch (error) {
+    console.error('获取用户农田失败:', error)
+    userFarmlandIds.value = []
+  }
+}
+
 const fetchRecords = async () => {
   try {
     let url = '/api/irrigation/records'
     const params = []
+    
+    if (!isAdmin.value && userFarmlandIds.value.length > 0) {
+      params.push(`farmlandIds=${userFarmlandIds.value.join(',')}`)
+    }
+    
     if (filterForm.farmlandId) {
       params.push(`farmlandId=${filterForm.farmlandId}`)
     }
@@ -215,15 +245,19 @@ const fetchStatistics = async () => {
     const weekStart = getWeekStart()
     const monthStart = getMonthStart()
 
-    const todayRes = await fetch(`/api/irrigation/records/statistics?startDate=${today}&endDate=${today}`)
+    const farmlandParam = (!isAdmin.value && userFarmlandIds.value.length > 0) 
+      ? `&farmlandIds=${userFarmlandIds.value.join(',')}` 
+      : ''
+
+    const todayRes = await fetch(`/api/irrigation/records/statistics?startDate=${today}&endDate=${today}${farmlandParam}`)
     const todayData = await todayRes.json()
     todayWaterUsage.value = todayData.totalWater || 0
 
-    const weekRes = await fetch(`/api/irrigation/records/statistics?startDate=${weekStart}&endDate=${today}`)
+    const weekRes = await fetch(`/api/irrigation/records/statistics?startDate=${weekStart}&endDate=${today}${farmlandParam}`)
     const weekData = await weekRes.json()
     weekWaterUsage.value = weekData.totalWater || 0
 
-    const monthRes = await fetch(`/api/irrigation/records/statistics?startDate=${monthStart}&endDate=${today}`)
+    const monthRes = await fetch(`/api/irrigation/records/statistics?startDate=${monthStart}&endDate=${today}${farmlandParam}`)
     const monthData = await monthRes.json()
     monthWaterUsage.value = monthData.totalWater || 0
   } catch (error) {
@@ -328,9 +362,10 @@ const exportData = () => {
   ElMessage.success('导出成功')
 }
 
-onMounted(() => {
-  fetchFarmlands()
-  fetchDevices()
+onMounted(async () => {
+  await fetchFarmlands()
+  await fetchDevices()
+  await fetchUserFarmlandIds()
   fetchRecords()
   fetchStatistics()
 })

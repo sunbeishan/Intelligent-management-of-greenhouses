@@ -4,6 +4,7 @@
       <div class="login-header">
         <h1 class="login-title">智慧农业管理系统</h1>
         <p class="login-subtitle">注册新账号</p>
+        <p class="login-hint">注：注册后需管理员审批才能登录</p>
       </div>
       <el-form :model="registerForm" :rules="registerRules" ref="registerFormRef" class="login-form">
         <el-form-item prop="username">
@@ -34,6 +35,12 @@
             </template>
           </el-input>
         </el-form-item>
+        <el-form-item prop="farmlandIds">
+          <el-select v-model="registerForm.farmlandIds" multiple placeholder="请选择管理的农田（每个农田最多2人）">
+            <el-option v-for="farmland in farmlands" :key="farmland.id" :label="farmland.name + (farmland.userCount >= 2 ? ' (已满)' : '')" :value="farmland.id" :disabled="farmland.userCount >= 2"></el-option>
+          </el-select>
+          <div class="farmland-tip">提示：每个农田最多允许2人管理，已达上限的农田不可选</div>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" class="login-button" @click="handleRegister" :loading="loading">
             {{ loading ? '注册中...' : '注册' }}
@@ -48,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Lock, Avatar } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -56,12 +63,14 @@ import { ElMessage } from 'element-plus'
 const router = useRouter()
 const registerFormRef = ref()
 const loading = ref(false)
+const farmlands = ref([])
 
 const registerForm = reactive({
   username: '',
   password: '',
   confirmPassword: '',
-  name: ''
+  name: '',
+  farmlandIds: []
 })
 
 const registerRules = {
@@ -89,6 +98,20 @@ const registerRules = {
   ]
 }
 
+const fetchFarmlands = async () => {
+  try {
+    const response = await fetch('/api/farmland')
+    const data = await response.json()
+    farmlands.value = data.map(f => ({
+      id: f.id,
+      name: f.name,
+      userCount: f.userCount || 0
+    }))
+  } catch (error) {
+    console.error('获取农田列表失败:', error)
+  }
+}
+
 const handleRegister = async () => {
   try {
     await registerFormRef.value.validate()
@@ -100,7 +123,8 @@ const handleRegister = async () => {
       body: JSON.stringify({
         username: registerForm.username,
         password: registerForm.password,
-        name: registerForm.name
+        name: registerForm.name,
+        farmlandIds: registerForm.farmlandIds
       })
     })
 
@@ -108,7 +132,7 @@ const handleRegister = async () => {
 
     if (data.success) {
       ElMessage.success({
-        message: '注册成功，3秒后跳转到登录页面',
+        message: '注册成功，请等待管理员审批',
         duration: 3000
       })
       setTimeout(() => {
@@ -128,6 +152,10 @@ const handleRegister = async () => {
 const goToLogin = () => {
   router.push('/login')
 }
+
+onMounted(() => {
+  fetchFarmlands()
+})
 </script>
 
 <style scoped>
@@ -177,6 +205,18 @@ const goToLogin = () => {
   font-size: 14px;
   color: #666;
   margin: 0;
+}
+
+.login-hint {
+  font-size: 12px;
+  color: #ff6b6b;
+  margin: 8px 0 0 0;
+}
+
+.farmland-tip {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
 }
 
 .login-form {

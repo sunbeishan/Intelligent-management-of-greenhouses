@@ -3,6 +3,7 @@ package server;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import dao.FarmlandDAO;
+import dao.UserFarmlandDAO;
 import model.Farmland;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.util.regex.Pattern;
 
 public class FarmlandHandler implements HttpHandler {
     private FarmlandDAO dao = new FarmlandDAO();
+    private UserFarmlandDAO userFarmlandDAO = new UserFarmlandDAO();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -175,10 +177,12 @@ public class FarmlandHandler implements HttpHandler {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < farmlands.size(); i++) {
             Farmland f = farmlands.get(i);
+            int userCount = userFarmlandDAO.getFarmlandUserCount(f.getId());
             sb.append(String.format(
-                "{\"id\":%d,\"name\":\"%s\",\"area\":\"%s\",\"acreage\":%.2f,\"soilType\":\"%s\",\"crop\":\"%s\",\"status\":\"%s\",\"createTime\":\"%s\",\"updateTime\":\"%s\"}",
+                "{\"id\":%d,\"name\":\"%s\",\"area\":\"%s\",\"acreage\":%.2f,\"soilType\":\"%s\",\"crop\":\"%s\",\"status\":\"%s\",\"userCount\":%d,\"createTime\":\"%s\",\"updateTime\":\"%s\"}",
                 f.getId(), escapeJson(f.getName()), escapeJson(f.getArea()), f.getAcreage(),
                 escapeJson(f.getSoilType()), escapeJson(f.getCrop()), escapeJson(f.getStatus()),
+                userCount,
                 f.getCreateTime() != null ? f.getCreateTime().toString() : "",
                 f.getUpdateTime() != null ? f.getUpdateTime().toString() : ""
             ));

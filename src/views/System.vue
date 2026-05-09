@@ -24,15 +24,30 @@
             <el-table-column prop="username" label="用户名"></el-table-column>
             <el-table-column prop="name" label="姓名" width="120"></el-table-column>
             <el-table-column prop="role" label="角色" width="120"></el-table-column>
+            <el-table-column prop="farmlands" label="管理农田">
+              <template #default="scope">
+                <el-tag v-if="scope.row.role === '管理员'" type="primary" size="small">全部农田</el-tag>
+                <template v-else>
+                  <el-tag v-for="(farmland, index) in scope.row.farmlands" :key="index" type="info" size="small">{{ farmland }}</el-tag>
+                  <span v-if="!scope.row.farmlands || scope.row.farmlands.length === 0" class="no-farmland">-</span>
+                </template>
+              </template>
+            </el-table-column>
             <el-table-column prop="status" label="状态" width="100">
               <template #default="scope">
                 <el-tag :type="getUserStatusTag(scope.row.status)">{{ scope.row.status }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="createTime" label="创建时间" width="180"></el-table-column>
-            <el-table-column label="操作" width="150">
+            <el-table-column label="操作" width="220">
               <template #default="scope">
-                <el-button type="primary" size="small" @click="editUser(scope.row)">
+                <el-button v-if="scope.row.status === '待审批'" type="success" size="small" @click="approveUser(scope.row)">
+                  审批通过
+                </el-button>
+                <el-button v-if="scope.row.status === '待审批'" type="danger" size="small" @click="rejectUser(scope.row)">
+                  拒绝
+                </el-button>
+                <el-button v-if="scope.row.status !== '待审批'" type="primary" size="small" @click="editUser(scope.row)">
                   编辑
                 </el-button>
                 <el-button type="danger" size="small" @click="deleteUser(scope.row.id)">
@@ -165,6 +180,7 @@
           <el-select v-model="userForm.status" style="width: 100%">
             <el-option label="启用" value="启用"></el-option>
             <el-option label="禁用" value="禁用"></el-option>
+            <el-option label="待审批" value="待审批"></el-option>
           </el-select>
         </el-form-item>
       </el-form>
@@ -494,9 +510,54 @@ const saveSettings = () => {
 const getUserStatusTag = (status) => {
   const tagMap = {
     '启用': 'success',
-    '禁用': 'danger'
+    '禁用': 'danger',
+    '待审批': 'warning'
   }
   return tagMap[status] || 'default'
+}
+
+const approveUser = async (user) => {
+  try {
+    await ElMessageBox.confirm('确定要审批通过该用户吗？', '提示', { type: 'warning' })
+    const response = await fetch(`/api/users/${user.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...user,
+        status: '启用'
+      })
+    })
+    if (response.ok) {
+      ElMessage.success('审批通过成功')
+      fetchUsers()
+    } else {
+      ElMessage.error('审批失败')
+    }
+  } catch (error) {
+    // 取消审批
+  }
+}
+
+const rejectUser = async (user) => {
+  try {
+    await ElMessageBox.confirm('确定要拒绝该用户的注册申请吗？该用户将被禁用。', '提示', { type: 'warning' })
+    const response = await fetch(`/api/users/${user.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...user,
+        status: '禁用'
+      })
+    })
+    if (response.ok) {
+      ElMessage.success('已拒绝该用户申请')
+      fetchUsers()
+    } else {
+      ElMessage.error('操作失败')
+    }
+  } catch (error) {
+    // 取消拒绝
+  }
 }
 
 const getExpertStatusTag = (status) => {
@@ -738,5 +799,10 @@ const deleteExpert = async (id) => {
   justify-content: center;
   font-size: 14px;
   color: #666;
+}
+
+.no-farmland {
+  color: #999;
+  font-style: italic;
 }
 </style>

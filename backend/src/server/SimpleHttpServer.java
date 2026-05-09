@@ -28,6 +28,7 @@ public class SimpleHttpServer {
         server.createContext("/api/inventory", new InventoryHandler());
 
         server.createContext("/api/users", new UserHandler());
+        server.createContext("/api/user/info", new UserInfoHandler());
         server.createContext("/api/roles", new RoleHandler());
 
         server.createContext("/api/consultations", new ConsultationHandler());

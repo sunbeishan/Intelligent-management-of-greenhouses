@@ -5,7 +5,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DatabaseConfig {
-    private static final String URL = "jdbc:mysql://localhost:3306/agriculture_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8";
+    private static final String URL = "jdbc:mysql://localhost:3306/agriculture_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8";
     private static final String USER = "root";
     private static final String PASSWORD = "Scs20050122+.";
 

@@ -299,3 +299,8 @@ INSERT INTO irrigation_records (farmland_id, device_id, plan_id, start_time, end
 (2, 2, 2, '2026-05-07 09:00:00', '2026-05-07 09:25:00', 25, 750.0, '自动', '已完成', '系统', '按计划执行'),
 (4, 4, 3, '2026-05-07 07:00:00', '2026-05-07 07:45:00', 45, 4500.0, '自动', '已完成', '系统', '按计划执行'),
 (1, 1, NULL, '2026-05-06 16:30:00', '2026-05-06 17:00:00', 30, 1500.0, '手动', '已完成', '管理员', '补充灌溉');
+
+USE agriculture_db;
+
+-- 为users表添加farmlands字段
+ALTER TABLE users ADD COLUMN IF NOT EXISTS farmlands TEXT COMMENT '管理的农田ID（逗号分隔）';

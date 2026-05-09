@@ -74,6 +74,42 @@ public class IrrigationPlanDAO {
         return plans;
     }
 
+    public List<IrrigationPlan> getPlansByFarmlandIds(int[] farmlandIds) {
+        List<IrrigationPlan> plans = new ArrayList<>();
+        if (farmlandIds == null || farmlandIds.length == 0) {
+            return plans;
+        }
+        
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT p.*, f.name as farmland_name, d.name as device_name ");
+        sql.append("FROM irrigation_plans p ");
+        sql.append("LEFT JOIN farmland f ON p.farmland_id = f.id ");
+        sql.append("LEFT JOIN irrigation_devices d ON p.device_id = d.id ");
+        sql.append("WHERE p.farmland_id IN (");
+        
+        for (int i = 0; i < farmlandIds.length; i++) {
+            if (i > 0) sql.append(",");
+            sql.append("?");
+        }
+        sql.append(") ORDER BY p.create_time DESC");
+
+        try (Connection conn = DatabaseConfig.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+
+            for (int i = 0; i < farmlandIds.length; i++) {
+                pstmt.setInt(i + 1, farmlandIds[i]);
+            }
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                plans.add(extractPlan(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return plans;
+    }
+
     public List<IrrigationPlan> getActivePlans() {
         List<IrrigationPlan> plans = new ArrayList<>();
         String sql = "SELECT p.*, f.name as farmland_name, d.name as device_name " +
