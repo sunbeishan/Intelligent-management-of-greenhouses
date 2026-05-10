@@ -304,3 +304,26 @@ USE agriculture_db;
 
 -- 为users表添加farmlands字段
 ALTER TABLE users ADD COLUMN IF NOT EXISTS farmlands TEXT COMMENT '管理的农田ID（逗号分隔）';
+
+-- 监测点表
+CREATE TABLE IF NOT EXISTS monitor_points (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL COMMENT '监测点名称',
+    location VARCHAR(200) COMMENT '位置',
+    farmland_id INT COMMENT '所属农田ID',
+    status VARCHAR(20) DEFAULT '正常' COMMENT '状态（正常/警告/异常）',
+    temperature DECIMAL(5,1) DEFAULT 0 COMMENT '温度',
+    humidity INT DEFAULT 0 COMMENT '湿度',
+    light INT DEFAULT 0 COMMENT '光照(lux)',
+    co2 INT DEFAULT 0 COMMENT 'CO2(ppm)',
+    last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+    create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    FOREIGN KEY (farmland_id) REFERENCES farmland(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 插入测试数据 - 监测点
+INSERT INTO monitor_points (name, location, farmland_id, status, temperature, humidity, light, co2) VALUES
+('大棚A', '东区1号', 1, '正常', 24.0, 74, 8023, 422),
+('大棚B', '东区2号', 2, '正常', 23.5, 72, 7850, 418),
+('大棚C', '西区1号', 3, '正常', 25.2, 68, 8200, 425),
+('露天农田', '南区', 4, '正常', 22.8, 65, 8500, 405);

@@ -1,6 +1,5 @@
 <template>
   <div class="environment">
-    <!-- 监测点选择 -->
     <el-card shadow="hover" class="filter-card">
       <div class="filter-content">
         <el-form :inline="true" :model="filterForm" class="filter-form">
@@ -21,11 +20,13 @@
           <el-form-item>
             <el-button type="primary" @click="searchData">查询</el-button>
           </el-form-item>
+          <el-form-item>
+            <el-button type="success" @click="showAddModal = true">添加监测点</el-button>
+          </el-form-item>
         </el-form>
       </div>
     </el-card>
 
-    <!-- 环境指标卡片 -->
     <div class="env-indicators">
       <el-card shadow="hover" class="indicator-card">
         <div class="indicator-content">
@@ -65,7 +66,6 @@
       </el-card>
     </div>
 
-    <!-- 历史数据图表 -->
     <el-card shadow="hover" class="chart-card">
       <template #header>
         <div class="card-header">
@@ -83,7 +83,6 @@
       <div ref="chartRef" class="chart-container"></div>
     </el-card>
 
-    <!-- 监测点列表 -->
     <el-card shadow="hover" class="monitor-list-card">
       <template #header>
         <div class="card-header">
@@ -101,16 +100,55 @@
           </template>
         </el-table-column>
         <el-table-column prop="lastUpdate" label="最后更新" width="180"></el-table-column>
+        <el-table-column prop="temperature" label="温度(°C)" width="120"></el-table-column>
+        <el-table-column prop="humidity" label="湿度(%)" width="100"></el-table-column>
+        <el-table-column label="操作" width="150">
+          <template #default="scope">
+            <el-button size="small" @click="deleteMonitorPoint(scope.row.id)">删除</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </el-card>
+
+    <el-dialog title="添加监测点" v-model="showAddModal" width="500px">
+      <el-form :model="addForm" label-width="120px">
+        <el-form-item label="监测点名称" required>
+          <el-input v-model="addForm.name" placeholder="请输入监测点名称"></el-input>
+        </el-form-item>
+        <el-form-item label="位置">
+          <el-input v-model="addForm.location" placeholder="请输入位置信息"></el-input>
+        </el-form-item>
+        <el-form-item label="所属农田" required>
+          <el-select v-model="addForm.farmlandId" placeholder="请选择所属农田">
+            <el-option v-for="farmland in filteredFarmlands" :key="farmland.id" :label="farmland.name" :value="farmland.id"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="初始温度">
+          <el-input v-model.number="addForm.temperature" placeholder="请输入初始温度" type="number" step="0.1"></el-input>
+        </el-form-item>
+        <el-form-item label="初始湿度">
+          <el-input v-model.number="addForm.humidity" placeholder="请输入初始湿度" type="number"></el-input>
+        </el-form-item>
+        <el-form-item label="初始光照">
+          <el-input v-model.number="addForm.light" placeholder="请输入初始光照" type="number"></el-input>
+        </el-form-item>
+        <el-form-item label="初始CO2">
+          <el-input v-model.number="addForm.co2" placeholder="请输入初始CO2" type="number"></el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showAddModal = false">取消</el-button>
+        <el-button type="primary" @click="addMonitorPoint">确认添加</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import * as echarts from 'echarts'
-import { Monitor } from '@element-plus/icons-vue'
 import { useAppStore } from '../stores/index.js'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const store = useAppStore()
 const isAdmin = computed(() => store.user.role === '管理员')
@@ -132,69 +170,45 @@ const environmentData = ref({
 })
 
 const userFarmlands = ref([])
+const allMonitorPoints = ref([])
+const farmlands = ref([])
 
-const allMonitorPoints = [
-  {
-    id: 1,
-    name: '大棚A',
-    value: 'greenhouseA',
-    location: '东区1号',
-    status: '正常',
-    lastUpdate: '2026-04-26 14:30',
-    farmland: '大棚A'
-  },
-  {
-    id: 2,
-    name: '大棚B',
-    value: 'greenhouseB',
-    location: '东区2号',
-    status: '正常',
-    lastUpdate: '2026-04-26 14:28',
-    farmland: '大棚B'
-  },
-  {
-    id: 3,
-    name: '大棚C',
-    value: 'greenhouseC',
-    location: '西区1号',
-    status: '正常',
-    lastUpdate: '2026-04-26 14:25',
-    farmland: '大棚C'
-  },
-  {
-    id: 4,
-    name: '露天农田',
-    value: 'openField',
-    location: '南区',
-    status: '正常',
-    lastUpdate: '2026-04-26 14:20',
-    farmland: '露天农田'
-  }
-]
+const showAddModal = ref(false)
+const addForm = ref({
+  name: '',
+  location: '',
+  farmlandId: '',
+  temperature: 25.0,
+  humidity: 65,
+  light: 8000,
+  co2: 450
+})
 
 const monitorPoints = computed(() => {
   if (isAdmin.value) {
-    return allMonitorPoints
+    return allMonitorPoints.value
   }
-  return allMonitorPoints.filter(mp => userFarmlands.value.includes(mp.farmland))
+  return allMonitorPoints.value.filter(mp => {
+    const farmland = farmlands.value.find(f => f.id === mp.farmlandId)
+    return farmland && userFarmlands.value.includes(farmland.name)
+  })
 })
 
 const availableMonitorOptions = computed(() => {
+  const filteredPoints = isAdmin.value ? allMonitorPoints.value : monitorPoints.value
+  return filteredPoints.map(mp => ({
+    label: mp.name,
+    value: mp.name
+  }))
+})
+
+const filteredFarmlands = computed(() => {
   if (isAdmin.value) {
-    return [
-      { label: '大棚A', value: 'greenhouseA' },
-      { label: '大棚B', value: 'greenhouseB' },
-      { label: '大棚C', value: 'greenhouseC' },
-      { label: '露天农田', value: 'openField' }
-    ]
+    return farmlands.value
   }
-  const farmlandToOption = {
-    '大棚A': { label: '大棚A', value: 'greenhouseA' },
-    '大棚B': { label: '大棚B', value: 'greenhouseB' },
-    '大棚C': { label: '大棚C', value: 'greenhouseC' },
-    '露天农田': { label: '露天农田', value: 'openField' }
-  }
-  return userFarmlands.value.map(f => farmlandToOption[f]).filter(Boolean)
+  return farmlands.value.filter(farmland => 
+    userFarmlands.value.includes(farmland.name)
+  )
 })
 
 const chartRef = ref(null)
@@ -278,8 +292,8 @@ const generateYearData = () => {
 const yearData = generateYearData()
 
 const getEnvironmentDataByDate = (dateStr) => {
-  const monitorPoint = filterForm.value.monitorPoint || 'greenhouseA'
-  const config = monitorPointConfig[monitorPoint] || monitorPointConfig['greenhouseA']
+  const monitorPoint = filterForm.value.monitorPoint || '大棚A'
+  const config = monitorPointConfig[monitorPoint.toLowerCase().replace(/\s/g, '')] || monitorPointConfig['greenhouseA']
   
   const tempMin = config.tempRange[0]
   const tempMax = config.tempRange[1]
@@ -347,7 +361,6 @@ const generateHistoricalData = (days = 7) => {
   return { dates, data }
 }
 
-// 初始化图表
 const initChart = () => {
   if (!chartRef.value) return
   
@@ -355,13 +368,11 @@ const initChart = () => {
   updateChart()
 }
 
-// 更新图表
 const updateChart = () => {
   if (!chart.value) return
   
   const { dates, data } = generateHistoricalData()
   
-  // 获取当前选中的指标数据
   let seriesData = []
   let indicatorName = ''
   let indicatorColor = ''
@@ -393,7 +404,6 @@ const updateChart = () => {
       indicatorColor = '#ff7875'
   }
   
-  // 配置图表选项
   const option = {
     tooltip: {
       trigger: 'axis',
@@ -437,11 +447,11 @@ const updateChart = () => {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             {
               offset: 0,
-              color: `${indicatorColor}33` // 33 is 20% opacity
+              color: `${indicatorColor}33`
             },
             {
               offset: 1,
-              color: `${indicatorColor}11` // 11 is 7% opacity
+              color: `${indicatorColor}11`
             }
           ])
         }
@@ -452,7 +462,6 @@ const updateChart = () => {
   chart.value.setOption(option)
 }
 
-// 获取指标名称
 const getIndicatorName = (indicator) => {
   const nameMap = {
     temperature: '温度 (°C)',
@@ -463,7 +472,6 @@ const getIndicatorName = (indicator) => {
   return nameMap[indicator] || ''
 }
 
-// 获取指标颜色
 const getIndicatorColor = (indicator, alpha = 1) => {
   const colorMap = {
     temperature: `rgba(255, 120, 117, ${alpha})`,
@@ -474,7 +482,6 @@ const getIndicatorColor = (indicator, alpha = 1) => {
   return colorMap[indicator] || `rgba(144, 147, 153, ${alpha})`
 }
 
-// 响应式调整
 const handleResize = () => {
   chart.value?.resize()
 }
@@ -508,9 +515,128 @@ const getMonitorStatusTag = (status) => {
   return tagMap[status] || 'default'
 }
 
-const viewDetails = (row) => {
-  // 查看监测点详情
-  console.log('查看监测点详情:', row)
+const fetchMonitorPoints = async () => {
+  try {
+    const response = await fetch('/api/monitor-points')
+    const data = await response.json()
+    if (Array.isArray(data)) {
+      allMonitorPoints.value = data.map(mp => ({
+        id: mp.id,
+        name: mp.name,
+        value: mp.name,
+        location: mp.location,
+        farmlandId: mp.farmlandId,
+        status: mp.status,
+        lastUpdate: mp.lastUpdate ? formatDateTime(mp.lastUpdate) : '',
+        temperature: mp.temperature,
+        humidity: mp.humidity,
+        light: mp.light,
+        co2: mp.co2
+      }))
+      const filteredOptions = availableMonitorOptions.value
+      if (filteredOptions.length > 0) {
+        filterForm.value.monitorPoint = filteredOptions[0].value
+      }
+    }
+  } catch (error) {
+    console.error('获取监测点数据失败:', error)
+  }
+}
+
+const fetchFarmlands = async () => {
+  try {
+    const response = await fetch('/api/farmland')
+    const data = await response.json()
+    if (Array.isArray(data)) {
+      farmlands.value = data
+    }
+  } catch (error) {
+    console.error('获取农田数据失败:', error)
+  }
+}
+
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return ''
+  const date = new Date(dateTimeStr)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+const addMonitorPoint = async () => {
+  if (!addForm.value.name || !addForm.value.farmlandId) {
+    ElMessage.warning('请填写监测点名称和所属农田')
+    return
+  }
+  
+  try {
+    const response = await fetch('/api/monitor-points', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: addForm.value.name,
+        location: addForm.value.location,
+        farmlandId: addForm.value.farmlandId,
+        status: '正常',
+        temperature: addForm.value.temperature || 25.0,
+        humidity: addForm.value.humidity || 65,
+        light: addForm.value.light || 8000,
+        co2: addForm.value.co2 || 450
+      })
+    })
+    
+    const data = await response.json()
+    if (data.success) {
+      ElMessage.success('添加成功')
+      showAddModal.value = false
+      addForm.value = {
+        name: '',
+        location: '',
+        farmlandId: '',
+        temperature: 25.0,
+        humidity: 65,
+        light: 8000,
+        co2: 450
+      }
+      await fetchMonitorPoints()
+    } else {
+      ElMessage.error(data.message || '添加失败')
+    }
+  } catch (error) {
+    console.error('添加监测点失败:', error)
+    ElMessage.error('添加失败')
+  }
+}
+
+const deleteMonitorPoint = async (id) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除这个监测点吗？',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    const response = await fetch(`/api/monitor-points/${id}`, {
+      method: 'DELETE'
+    })
+    
+    const data = await response.json()
+    if (data.success) {
+      ElMessage.success('删除成功')
+      await fetchMonitorPoints()
+    } else {
+      ElMessage.error(data.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除监测点失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
 }
 
 const fetchUserFarmlands = async () => {
@@ -529,9 +655,6 @@ const fetchUserFarmlands = async () => {
     if (data.farmlands) {
       userFarmlands.value = data.farmlands
     }
-    if (userFarmlands.value.length > 0) {
-      filterForm.value.monitorPoint = availableMonitorOptions.value[0]?.value || ''
-    }
   } catch (error) {
     console.error('获取用户农田失败:', error)
     userFarmlands.value = []
@@ -540,6 +663,8 @@ const fetchUserFarmlands = async () => {
 
 onMounted(async () => {
   await fetchUserFarmlands()
+  await fetchFarmlands()
+  await fetchMonitorPoints()
   environmentData.value = getEnvironmentDataByDate()
   initChart()
   window.addEventListener('resize', handleResize)
@@ -648,7 +773,6 @@ onUnmounted(() => {
   gap: 10px;
 }
 
-/* 选择框样式 */
 :deep(.el-select) {
   min-width: 120px;
 }
@@ -702,7 +826,6 @@ onUnmounted(() => {
   position: relative;
 }
 
-/* 隐藏滚动条 */
 :deep(.el-card__body) {
   overflow: hidden !important;
   padding: 20px !important;

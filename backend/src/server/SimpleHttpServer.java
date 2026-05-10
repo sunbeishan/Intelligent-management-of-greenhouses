@@ -44,6 +44,7 @@ public class SimpleHttpServer {
         server.createContext("/api/irrigation/devices", new IrrigationDeviceHandler());
         server.createContext("/api/irrigation/plans", new IrrigationPlanHandler());
         server.createContext("/api/irrigation/records", new IrrigationRecordHandler());
+        server.createContext("/api/monitor-points", new MonitorPointHandler());
 
         server.setExecutor(null);
         server.start();
